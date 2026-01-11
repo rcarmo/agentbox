@@ -33,17 +33,16 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
         min-height: 0;
     }
 
-    /* reduce top margin for the first child so the name field is visible */
-    #create-form > Label:first-child,
-    #create-form > Input:first-child,
-    #create-form > Select:first-child {
+    /* Labels should not push content down; keep compact. Inputs/Selects get spacing. */
+    #create-form > Label {
         margin-top: 0;
+        margin-bottom: 0;
     }
 
-    #create-form > Label,
     #create-form > Input,
     #create-form > Select {
         margin-top: 1;
+        margin-bottom: 0;
     }
 
     #name-browse-row {
