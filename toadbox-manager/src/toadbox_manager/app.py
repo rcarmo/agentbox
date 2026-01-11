@@ -12,6 +12,8 @@ import docker
 import yaml
 from docker.errors import DockerException
 import time
+import pty
+from toadbox_manager import terminal
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
@@ -81,41 +83,50 @@ class InstanceManagerApp(App):
     .status-error { color: red; text-style: bold; }
         """
     )
-
-    def __init__(self) -> None:
-        super().__init__()
-        # Application title shown by the Header widget
-        self.title = "Toadbox Manager"
-        self.config_file = Path.home() / ".toadbox-manager.json"
-        self.compose_dir = Path.home() / ".toadbox-manager"
-        self.compose_dir.mkdir(exist_ok=True)
-        self.compose_path = self.compose_dir / "docker-compose.yml"
-        self.compose_project = "toadbox-manager"
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Initialize core state used across the app and tests.
+        super().__init__(*args, **kwargs)
+        # Instances registry: name -> ToadboxInstance
         self.instances: Dict[str, ToadboxInstance] = {}
-        self.docker_client: Optional[docker.DockerClient] = None
-        self.load_config()
-        self._init_docker_client()
-
-    def _init_docker_client(self) -> None:
+        # Compose / config paths under the user's home by default
+        self.compose_dir: Path = Path.home() / ".toadbox-manager"
+        self.compose_path: Path = self.compose_dir / "docker-compose.yml"
+        self.compose_project: str = "toadbox"
+        self.config_file: Path = self.compose_dir / "config.json"
+        # Try to initialize Docker SDK client but fall back gracefully
         try:
-            client = docker.from_env()
-            # Some environments may return None or a broken client; guard ping
-            try:
-                if client is not None:
-                    client.ping()
-                    self.docker_client = client
-                else:
-                    self.docker_client = None
-            except Exception:
-                self.docker_client = None
+            self.docker_client = docker.from_env()
+        except DockerException:
+            self.docker_client = None
         except Exception:
             self.docker_client = None
-        # Detect whether docker CLI or docker-compose is available as a fallback
-        try:
-            self.docker_cli_available = bool(shutil.which("docker") or shutil.which("docker-compose"))
-        except Exception:
-            self.docker_cli_available = False
+        # Detect whether docker or docker-compose CLI is available
+        self.docker_cli_available = bool(shutil.which("docker") or shutil.which("docker-compose"))
+    def _init_docker_client(self) -> None:
+        """Initialize or reinitialize the Docker SDK client and CLI availability flag.
 
+        This is called before actions that need Docker to ensure the app has
+        up-to-date knowledge about SDK/CLI availability.
+        """
+        try:
+            self.docker_client = docker.from_env()
+        except DockerException:
+            self.docker_client = None
+        except Exception:
+            self.docker_client = None
+
+        # Refresh CLI availability
+        self.docker_cli_available = bool(shutil.which("docker") or shutil.which("docker-compose"))
+
+        # Ensure compose/config attributes exist
+        if not getattr(self, "compose_dir", None):
+            self.compose_dir = Path.home() / ".toadbox-manager"
+        if not getattr(self, "compose_path", None):
+            self.compose_path = self.compose_dir / "docker-compose.yml"
+        if not getattr(self, "compose_project", None):
+            self.compose_project = "toadbox"
+        if not getattr(self, "config_file", None):
+            self.config_file = self.compose_dir / "config.json"
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with Container(id="main-container"):
@@ -127,7 +138,7 @@ class InstanceManagerApp(App):
                     Button("Start", id="start-btn"),
                     Button("Stop", id="stop-btn"),
                     Button("Delete", id="delete-btn"),
-                        Button("Attach", id="attach-btn"),
+                    Button("Attach", id="attach-btn"),
                     Button("SSH", id="ssh-btn"),
                     Button("RDP", id="rdp-btn"),
                     Button("Refresh", id="refresh-btn"),
@@ -485,6 +496,8 @@ class InstanceManagerApp(App):
         # Attempt to attach to the running container and open a tmux session
         # Use docker exec to run tmux inside the container
         # If SDK client available, prefer it
+        _run_restore = terminal.restore_terminal
+
         if self.docker_client:
             try:
                 containers = self.docker_client.containers.list(filters={"name": instance.service_name})
@@ -498,27 +511,16 @@ class InstanceManagerApp(App):
             container = containers[0]
             target = container.name if hasattr(container, "name") else container.id
 
-            # Run tmux as the `agent` user inside the container. Provide the
-            # tmux command as a single argument to `su - agent -c`.
-            # Prefer docker exec with explicit user for a clean login as `agent`.
             cmd = ["docker", "exec", "-it", "--user", "agent", target, "tmux", "new", "-As0"]
+            # Prefer PTY spawn for interactive tty behavior, fall back to execvp or subprocess
             try:
                 self.exit()
-                # Small delay lets Textual restore terminal state; increase for reliability
-                time.sleep(0.25)
-                # Attempt to reset terminal modes before attaching
-                try:
-                    subprocess.run(["stty", "sane"], check=False)
-                except Exception:
-                    pass
-                result = subprocess.run(cmd, check=False)
-                if result and getattr(result, "returncode", 0) == 0:
+                # Allow Textual to teardown terminal; tuned longer for reliability
+                time.sleep(1.5)
+                # use terminal helper which handles run/pty/execvp + restore
+                ok = terminal.attach_command(cmd, delay=1.5)
+                if ok:
                     return
-                # fallback: replace the current process with docker exec for a fuller tty
-                try:
-                    os.execvp(cmd[0], cmd)
-                except Exception:
-                    pass
                 self.show_error("Failed to attach to container")
                 return
             except Exception:
@@ -542,13 +544,9 @@ class InstanceManagerApp(App):
                 target = names[0]
                 cmd = ["docker", "exec", "-it", "--user", "agent", target, "tmux", "new", "-As0"]
                 self.exit()
-                # Small delay and tty reset for reliability
-                time.sleep(0.25)
-                try:
-                    subprocess.run(["stty", "sane"], check=False)
-                except Exception:
-                    pass
-                subprocess.run(cmd, check=False)
+                ok = terminal.attach_command(cmd, delay=1.5)
+                if ok:
+                    return
                 return
             except Exception:
                 self.show_error("Failed to attach to container")
