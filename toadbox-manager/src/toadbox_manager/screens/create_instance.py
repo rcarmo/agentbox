@@ -36,7 +36,6 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
     #name-browse-row {
         width: 100%;
         layout: horizontal;
-        column-gap: 1;
         align: left middle;
     }
 
@@ -58,8 +57,11 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
     .button-row {
         width: 100%;
         align: right middle;
-        column-gap: 1;
         padding-top: 1;
+    }
+
+    .button-row Button {
+        margin-left: 1;
     }
     """
 

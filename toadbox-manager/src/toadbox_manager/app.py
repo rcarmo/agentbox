@@ -62,6 +62,18 @@ class InstanceManagerApp(App):
         padding: 0 1;
     }
 
+    .button-row {
+        layout: horizontal;
+        width: 100%;
+    }
+
+    .button-row Button {
+        width: auto;
+        min-width: 8;
+        padding: 0 1;
+        margin-right: 1;
+    }
+
     .status-running { color: green; text-style: bold; }
     .status-stopped { color: yellow; }
     .status-error { color: red; text-style: bold; }
@@ -70,6 +82,8 @@ class InstanceManagerApp(App):
 
     def __init__(self) -> None:
         super().__init__()
+        # Application title shown by the Header widget
+        self.title = "Toadbox Manager"
         self.config_file = Path.home() / ".toadbox-manager.json"
         self.compose_dir = Path.home() / ".toadbox-manager"
         self.compose_dir.mkdir(exist_ok=True)
@@ -88,7 +102,7 @@ class InstanceManagerApp(App):
             self.docker_client = None
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(show_clock=False)
         with Container(id="main-container"):
             with Vertical(id="instances-panel"):
                 yield Label("🐸 Toadbox Instances", classes="panel-title")
@@ -186,10 +200,14 @@ class InstanceManagerApp(App):
         if table.cursor_row is None:
             return None
         try:
+            # DataTable implementations may vary; guard against any lookup errors
+            if table.row_count == 0:
+                return None
             row = table.get_row_at(table.cursor_row)
-            if row:
-                return self.instances.get(str(row[0]))
-        except (KeyError, IndexError, LookupError, ValueError, DataTable.RowDoesNotExist):
+            if not row:
+                return None
+            return self.instances.get(str(row[0]))
+        except (KeyError, IndexError, LookupError, ValueError, AttributeError):
             return None
         return None
 
