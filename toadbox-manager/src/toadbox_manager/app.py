@@ -256,6 +256,8 @@ class InstanceManagerApp(App):
         return ssh_port, rdp_port
 
     def action_start_instance(self) -> None:
+        # Reinitialize docker client in case Docker became available after app start
+        self._init_docker_client()
         inst = self.get_selected_instance()
         if not inst:
             self.show_error("No instance selected")
@@ -457,6 +459,8 @@ class InstanceManagerApp(App):
         self._connect_rdp(inst)
 
     def action_attach_instance(self) -> None:
+        # Re-check Docker availability before attempting to attach
+        self._init_docker_client()
         inst = self.get_selected_instance()
         if not inst or inst.status != InstanceStatus.RUNNING:
             self.show_error("Select a running instance")
