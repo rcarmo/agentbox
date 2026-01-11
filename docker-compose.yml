@@ -10,7 +10,7 @@ services:
       - "${VNC_PORT:-5901}:5901"  # VNC
     volumes:
       # Mount workspace directory
-      - ${WORKSPACE_PATH:-./}:/workspace
+      - ${WORKSPACE_PATH:-./workspace}:/workspace
       # Persist Docker data per instance
       - ${COMPOSE_PROJECT_NAME:-toadbox}_docker_data:/var/lib/docker
       # Persist user home directory per instance

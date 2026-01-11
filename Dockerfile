@@ -132,6 +132,8 @@ RUN apt-get update && \
     # X11 and VNC
     tigervnc-standalone-server \
     tigervnc-common \
+    # Provides vncpasswd
+    tigervnc-tools \
     # Window manager
     openbox \
     # Terminal emulator
@@ -173,7 +175,11 @@ USER user
 WORKDIR /home/user
 RUN mkdir -p ~/.vnc && \
     echo "#!/bin/bash" > ~/.vnc/xstartup && \
-    echo "openbox &" >> ~/.vnc/xstartup && \
+    echo "unset SESSION_MANAGER" >> ~/.vnc/xstartup && \
+    echo "unset DBUS_SESSION_BUS_ADDRESS" >> ~/.vnc/xstartup && \
+    echo "xrdb $HOME/.Xresources" >> ~/.vnc/xstartup && \
+    echo "xsetroot -solid grey" >> ~/.vnc/xstartup && \
+    echo "openbox-session &" >> ~/.vnc/xstartup && \
     echo "lxpanel &" >> ~/.vnc/xstartup && \
     echo "lxterminal &" >> ~/.vnc/xstartup && \
     chmod +x ~/.vnc/xstartup
@@ -182,7 +188,7 @@ RUN mkdir -p ~/.vnc && \
 USER root
 
 # Ensure sshd can start
-RUN mkdir -p /var/run/sshd && chmod 755 /var/run/sshd
+RUN mkdir -p /run/sshd /var/run/sshd && chmod 755 /run/sshd /var/run/sshd
 
 # Start VNC as user, keep the container alive
 RUN cat > /quickstart.sh <<'EOF'
@@ -206,10 +212,12 @@ for i in "$@"; do
     esac
 done
 
-# set password to "changeme" if not set already
-if [ ! -f "$PASSWD" ]; then
-    install -d -m 700 -o user -g user /home/user/.vnc
-    su - user -c "echo changeme | vncpasswd -f > ~/.vnc/passwd"
+# set password to "changeme" (ensure it exists, unless noauth was requested)
+install -d -m 700 -o user -g user /home/user/.vnc
+if [[ "$AUTHMODE" != *"SecurityTypes None"* ]]; then
+    if [ ! -f "$PASSWD" ]; then
+        su - user -c "printf '%s\n%s\n\n' changeme changeme | vncpasswd"
+    fi
     su - user -c "chmod 600 ~/.vnc/passwd"
 fi
 
