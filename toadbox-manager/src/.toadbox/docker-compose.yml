@@ -1,0 +1,35 @@
+networks:
+  toadbox_network:
+    driver: bridge
+services:
+  src:
+    container_name: toadbox-src
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4096M
+    environment:
+    - PUID=502
+    - PGID=20
+    - TERM=xterm-256color
+    - DISPLAY=:1
+    hostname: toadbox-src
+    image: toadbox
+    networks:
+    - toadbox_network
+    ports:
+    - '2222:22'
+    - 3390:3389
+    privileged: true
+    restart: unless-stopped
+    volumes:
+    - /Users/rcarmo/Sync/Development/Experimental/toadbox/toadbox-manager/src:/workspace
+    - src_docker_data:/var/lib/docker
+    - src_home:/home/agent
+version: '3.8'
+volumes:
+  src_docker_data:
+    name: src_docker_data
+  src_home:
+    name: src_home
