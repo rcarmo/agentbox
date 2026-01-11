@@ -18,7 +18,7 @@ I found myself wanting to quickly spin up isolated coding environments for AI ag
 - **Development Environment**: Debian Bookworm with essential development tools
 - **Package Managers**: Homebrew and APT package management 
 - **Docker-in-Docker**: Docker support for containerized workflows (requires you to run the container in privileged mode, so be careful)
-- **Remote Access**: SSH (port 2222) and VNC (port 5901) connectivity
+- **Remote Access**: SSH (port 2222) and RDP (port 3390) connectivity
 - **Minimal Desktop**: Openbox window manager with minimal utilities, so you can run graphical applications, Playwright, etc.
 - **Persistent Storage**: optional data and user home directory persistence
 
@@ -72,9 +72,10 @@ docker-compose up -d
 
 3. Connect to the container:
 
-**Via VNC (Graphical Desktop):**
+**Via RDP (Graphical Desktop):**
 
-- VNC Viewer: `localhost:5901`
+- RDP Client: `localhost:3390`
+- Username: `user`
 - Password: `changeme`
 
 **Via SSH (Terminal):**

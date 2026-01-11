@@ -126,14 +126,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     usermod -aG docker user
 
-# Install VNC server and minimal desktop
+# Install xrdp and minimal desktop
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    # X11 and VNC
-    tigervnc-standalone-server \
-    tigervnc-common \
-    # Provides vncpasswd
-    tigervnc-tools \
+    # xrdp for remote desktop
+    xrdp \
+    xorgxrdp \
     # Window manager
     openbox \
     # Terminal emulator
@@ -156,9 +154,9 @@ RUN apt-get update && \
     # X11 utilities
     x11-utils \
     x11-xserver-utils \
-    # D-Bus (required for openbox-session to stay running)
+    # D-Bus (required for desktop session)
     dbus-x11 \
-    # Fallback session for VNC debugging
+    # Terminal fallback
     xterm \
     # Cleanup
     && apt-get autoremove -y \
@@ -174,13 +172,13 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | HOME=/home/user sh && \
     exec bash && \
     uv tool install -U batrachian-toad 
 
-# Set up VNC configuration
+# Set up xrdp session configuration
 USER user
 WORKDIR /home/user
-RUN mkdir -p ~/.vnc && \
-    cat > ~/.vnc/xstartup <<'XSTARTUP'
+RUN mkdir -p ~/.config/openbox && \
+    cat > ~/.xsession <<'XSESSION'
 #!/bin/sh
-# VNC xstartup - must keep a long-running process in the foreground
+# xrdp session script
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
 
@@ -189,7 +187,7 @@ export XDG_RUNTIME_DIR=/tmp/runtime-$USER
 mkdir -p $XDG_RUNTIME_DIR
 chmod 700 $XDG_RUNTIME_DIR
 
-# Start dbus session (required for openbox-session)
+# Start dbus session
 if command -v dbus-launch >/dev/null 2>&1; then
     eval $(dbus-launch --sh-syntax)
 fi
@@ -202,10 +200,10 @@ xsetroot -solid grey
 lxpanel &
 lxterminal &
 
-# Run openbox in foreground (NOT openbox-session which can exit early)
+# Run openbox in foreground
 exec openbox
-XSTARTUP
-RUN chmod +x ~/.vnc/xstartup
+XSESSION
+RUN chmod +x ~/.xsession
 
 # Runtime scripts (modeled after rcarmo/docker-templates desktop-chrome)
 USER root
@@ -213,54 +211,34 @@ USER root
 # Ensure sshd can start
 RUN mkdir -p /run/sshd /var/run/sshd && chmod 755 /run/sshd /var/run/sshd
 
-# Start VNC as user, keep the container alive
+# Start xrdp, keep the container alive
 RUN cat > /quickstart.sh <<'EOF'
 #!/bin/bash
 set -euo pipefail
 
-PASSWD="/home/user/.vnc/passwd"
-SETTINGS="-depth 24 -geometry 1280x720"
-AUTHMODE=""
-
 # cleanup /tmp
 rm -rf /tmp/.X* /tmp/ssh-* || true
-rm -f /home/user/.vnc/*.log || true
 
-for i in "$@"; do
-    case "$i" in
-        noauth)
-            AUTHMODE="-SecurityTypes None"
-            echo "*WARNING* VNC Server will be launched without authentication. Prefer SSH tunneling."
-            ;;
-    esac
-done
+# Ensure xrdp can write to its directories
+mkdir -p /var/run/xrdp
+chown xrdp:xrdp /var/run/xrdp
 
-# set password to "changeme" (ensure it exists, unless noauth was requested)
-install -d -m 700 -o user -g user /home/user/.vnc
-if [[ "$AUTHMODE" != *"SecurityTypes None"* ]]; then
-    if [ ! -f "$PASSWD" ]; then
-        su - user -c "printf '%s\n%s\n\n' changeme changeme | vncpasswd"
-    fi
-    su - user -c "chmod 600 ~/.vnc/passwd"
-fi
+# Start xrdp service
+/usr/sbin/xrdp-sesman
+/usr/sbin/xrdp --nodaemon &
+XRDP_PID=$!
 
-# xstartup is baked into the image; no need to regenerate at runtime
+echo "xrdp started on port 3389"
+echo "Connect with any RDP client using:"
+echo "  Username: user"
+echo "  Password: changeme"
 
-# start VNC server (force explicit xstartup to avoid "exited too early" issues)
-# NOTE: TigerVNC expects xstartup to run a long-lived X session in the foreground.
-# Some lightweight desktop setups still exit early; in that case, fall back to xterm
-# so the server stays up and the container doesn't restart-loop.
-if ! su - user -c "vncserver :1 -xstartup /home/user/.vnc/xstartup $AUTHMODE $SETTINGS"; then
-    echo "VNC xstartup failed; falling back to /usr/bin/xterm" >&2
-    su - user -c "vncserver :1 -xstartup /usr/bin/xterm $AUTHMODE $SETTINGS"
-fi
-echo "VNC server started on :1 (port 5901)"
-
-sleep infinity
+# Wait for xrdp to exit
+wait $XRDP_PID
 EOF
 RUN chmod +x /quickstart.sh
 
-# Simple entrypoint: run sshd in background, then run VNC quickstart in foreground
+# Simple entrypoint: run sshd in background, then run xrdp in foreground
 RUN cat > /entrypoint.sh <<'EOF'
 #!/bin/bash
 set -euo pipefail
@@ -268,19 +246,19 @@ set -euo pipefail
 echo "=== Toadbox Coding Agent Sandbox ==="
 echo "User: user"
 echo "SSH Password: changeme"
-echo "VNC Password: changeme"
+echo "RDP: Connect to port 3389 with user/changeme"
 echo ""
 
 echo "Starting sshd..."
 /usr/sbin/sshd
 
-echo "Starting VNC..."
+echo "Starting xrdp..."
 exec /quickstart.sh
 EOF
 RUN chmod +x /entrypoint.sh
 
 # Expose ports
-EXPOSE 22 5901
+EXPOSE 22 3389
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint-user.sh", "/entrypoint.sh"]

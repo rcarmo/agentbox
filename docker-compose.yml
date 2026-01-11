@@ -7,7 +7,7 @@ services:
     hostname: ${COMPOSE_PROJECT_NAME:-toadbox}
     ports:
       - "${SSH_PORT:-2222}:22"    # SSH
-      - "${VNC_PORT:-5901}:5901"  # VNC
+      - "${RDP_PORT:-3390}:3389"  # RDP (xrdp)
     volumes:
       # Mount workspace directory
       - ${WORKSPACE_PATH:-./workspace}:/workspace
