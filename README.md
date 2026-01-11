@@ -26,9 +26,11 @@ The container provides a Debian userland, Homebrew, (optional) Docker-in-Docker,
 
 ## Quick Start
 
-### Using Toadbox Manager (Recommended, still WIP)
+### Using Toadbox Manager (still WIP)
 
-The Toadbox Manager provides a TUI for easily managing multiple toadbox instances with automatic naming, folder picker, and proper permission handling.
+![Instance Manager](docs/screenshot.svg)
+
+The Toadbox Manager is a first stab at a TUI for easily managing multiple toadbox instances with automatic naming, folder picker, and proper permission handling.
 
 1. Clone or download this repository
 2. Run the quick start script:

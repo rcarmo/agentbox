@@ -5,6 +5,7 @@ import json
 import os
 import pwd
 import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -65,13 +66,21 @@ class ToadboxInstance:
     def to_dict(self) -> Dict:
         data = asdict(self)
         data['status'] = self.status.value
-        data['service_name'] = self.service_name
-        data['hostname'] = self.hostname
         return data
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'ToadboxInstance':
-        data['status'] = InstanceStatus(data['status'])
+        # Backwards/forwards compatibility with older config versions.
+        data = dict(data)
+        if 'status' in data:
+            data['status'] = InstanceStatus(data['status'])
+        else:
+            data['status'] = InstanceStatus.STOPPED
+
+        # These are computed properties, not dataclass fields.
+        data.pop('service_name', None)
+        data.pop('hostname', None)
+
         return cls(**data)
 
 
@@ -147,29 +156,25 @@ class CreateInstanceScreen(ModalScreen):
                 yield Label("Workspace Folder:")
                 yield Label(str(self.workspace_folder or "No folder selected"), id="workspace-label")
 
-                with Container(classes="two-col"):
-                    with Vertical(classes="col"):
-                        yield Label("CPU Cores:")
-                        yield Select([(str(i), str(i)) for i in range(1, 9)], value="2", id="cpu-select")
-                    with Vertical(classes="col"):
-                        yield Label("Memory (MB):")
-                        yield Select(
-                            [("2048", "2048"), ("4096", "4096"), ("8192", "8192"), ("16384", "16384")],
-                            value="4096",
-                            id="memory-select",
-                        )
+                yield Label("CPU Cores:")
+                yield Select([(str(i), str(i)) for i in range(1, 9)], value="2", id="cpu-select")
 
-                with Container(classes="two-col"):
-                    with Vertical(classes="col"):
-                        yield Label("Priority:")
-                        yield Select(
-                            [("low", "low"), ("medium", "medium"), ("high", "high")],
-                            value="low",
-                            id="priority-select",
-                        )
-                    with Vertical(classes="col"):
-                        yield Label("SSH Port:")
-                        yield Input(placeholder="2222", value="2222", id="ssh-port-input")
+                yield Label("Memory (MB):")
+                yield Select(
+                    [("2048", "2048"), ("4096", "4096"), ("8192", "8192"), ("16384", "16384")],
+                    value="4096",
+                    id="memory-select",
+                )
+
+                yield Label("Priority:")
+                yield Select(
+                    [("low", "low"), ("medium", "medium"), ("high", "high")],
+                    value="low",
+                    id="priority-select",
+                )
+
+                yield Label("SSH Port:")
+                yield Input(placeholder="2222", value="2222", id="ssh-port-input")
 
                 yield Label("VNC Port:")
                 yield Input(placeholder="5901", value="5901", id="vnc-port-input")
@@ -183,13 +188,11 @@ class CreateInstanceScreen(ModalScreen):
                     default_puid = "1000"
                     default_pgid = "1000"
 
-                with Container(classes="two-col"):
-                    with Vertical(classes="col"):
-                        yield Label("User ID (PUID):")
-                        yield Input(placeholder=default_puid, value=default_puid, id="puid-input")
-                    with Vertical(classes="col"):
-                        yield Label("Group ID (PGID):")
-                        yield Input(placeholder=default_pgid, value=default_pgid, id="pgid-input")
+                yield Label("User ID (PUID):")
+                yield Input(placeholder=default_puid, value=default_puid, id="puid-input")
+
+                yield Label("Group ID (PGID):")
+                yield Input(placeholder=default_pgid, value=default_pgid, id="pgid-input")
 
             with Horizontal(classes="button-row"):
                 yield Button("Create", variant="primary", id="create-button")
@@ -197,7 +200,32 @@ class CreateInstanceScreen(ModalScreen):
 
     def on_mount(self) -> None:
         # Ensure the dialog is immediately usable with keyboard.
+        self.query_one("#create-form", ScrollableContainer).focus()
         self.query_one("#name-input", Input).focus()
+
+        # Apply initial sizing (otherwise the first paint can clip the bottom buttons).
+        self._update_form_height()
+
+    def on_resize(self, _: events.Resize) -> None:
+        self._update_form_height()
+
+    def _update_form_height(self) -> None:
+        """Keep the scrollable form sized so the bottom button row remains visible."""
+        try:
+            form = self.query_one("#create-form", ScrollableContainer)
+        except Exception:
+            return
+
+        # Leave space for: title + button row + borders/padding.
+        available = max(5, self.app.size.height - 10)
+        form.styles.height = available
+
+    def action_focus_next(self) -> None:
+        # Ensure Tab advances focus even if the Input widget swallows it.
+        self.app.action_focus_next()
+
+    def action_focus_previous(self) -> None:
+        self.app.action_focus_previous()
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "browse-button":
@@ -328,8 +356,9 @@ class StartupScreen(ModalScreen):
                 vnc_port = vnc_port_info[0].get("HostPort", "N/A") if vnc_port_info else "N/A"
                 action = "Connect" if container.status == "running" else "Start"
                 
-                table.add_row(name, status, ssh_port, vnc_port, action, key=name)
+                # Only show running containers in the startup list.
                 if container.status == "running":
+                    table.add_row(name, status, ssh_port, vnc_port, action, key=name)
                     running_instances.append(name)
                     
         except Exception as e:
@@ -373,10 +402,15 @@ class StartupScreen(ModalScreen):
         """Connect to selected instance."""
         table = self.query_one("#running-instances-table", DataTable)
         cursor_row = table.cursor_row
-        if cursor_row is not None:
+        if cursor_row is None:
+            return
+        try:
             row_key = table.get_row_key(cursor_row)
-            if row_key and row_key not in ["error", "nodocker"]:
-                self.dismiss(("connect", row_key))
+        except Exception:
+            # Table is empty or cursor is invalid.
+            return
+        if row_key and row_key not in ["error", "nodocker"]:
+            self.dismiss(("connect", row_key))
     
     def action_quit(self) -> None:
         """Quit the application."""
@@ -422,8 +456,8 @@ class InstanceManagerApp(App):
     #main-container {
         height: 100%;
         layout: grid;
-        grid-size: 2 1;
-        grid-columns: 3fr 1fr;
+        grid-size: 1 1;
+        grid-columns: 1fr;
         grid-rows: 1fr;
     }
     
@@ -434,10 +468,7 @@ class InstanceManagerApp(App):
     }
     
     #help-panel {
-        height: 100%;
-        border: solid $primary;
-        padding: 1;
-        background: $surface;
+        display: none;
     }
     
     #help-title {
@@ -493,8 +524,8 @@ class InstanceManagerApp(App):
     
     #create-dialog, #folder-picker-dialog, #help-dialog {
         align: center middle;
-        width: 90%;
-        height: 90%;
+        width: 100%;
+        height: 100%;
         background: $surface;
         border: thick $primary;
         padding: 2;
@@ -502,11 +533,19 @@ class InstanceManagerApp(App):
 
     #create-dialog {
         padding: 1;
+        layout: vertical;
     }
 
     #create-form {
         height: 1fr;
         margin: 1 0;
+    }
+
+    .button-row {
+        dock: bottom;
+        align: center middle;
+        height: 3;
+        margin-top: 0;
     }
 
     #workspace-row {
@@ -516,11 +555,18 @@ class InstanceManagerApp(App):
     #name-browse-row {
         width: 100%;
         margin: 0 0 1 0;
+        height: 3;
+        align: left middle;
     }
 
     #name-input {
         width: 1fr;
         margin-right: 1;
+        height: 3;
+    }
+
+    #browse-button {
+        height: 3;
     }
 
     #workspace-label {
@@ -567,10 +613,7 @@ class InstanceManagerApp(App):
         margin: 1 0;
     }
     
-    .button-row {
-        align: center middle;
-        margin-top: 2;
-    }
+    
     """
     
     def __init__(self):
@@ -624,6 +667,7 @@ class InstanceManagerApp(App):
                         f"{service_name}_docker_data:/var/lib/docker",
                         f"{service_name}_home:/home/user"
                     ],
+                    "networks": ["toadbox_network"],
                     "privileged": True,
                     "deploy": {
                         "resources": {
@@ -661,19 +705,22 @@ class InstanceManagerApp(App):
         toadbox_dir.mkdir(exist_ok=True)
         
         compose_file = toadbox_dir / "docker-compose.yml"
-        with open(compose_file, 'w') as f:
+        with open(compose_file, 'w', encoding='utf-8') as f:
             yaml.dump(compose_config, f, default_flow_style=False)
         
         instance.compose_file = str(compose_file)
         return compose_file
     
-    def run_docker_compose(self, instance: ToadboxInstance, action: str = "up") -> bool:
-        """Run docker-compose command for an instance."""
+    def run_docker_compose(self, instance: ToadboxInstance, action: str = "up") -> tuple[bool, str]:
+        """Run docker-compose command for an instance.
+
+        Returns (ok, message) where message contains stderr/stdout for diagnostics.
+        """
         if not instance.compose_file:
             self.save_docker_compose(instance)
         
         if not instance.compose_file:
-            return False
+            return False, "Missing compose file"
         compose_dir = Path(instance.compose_file).parent
         
         # Set environment variables for docker-compose
@@ -688,8 +735,35 @@ class InstanceManagerApp(App):
             "CPU_LIMITS": str(instance.cpu_cores),
             "MEMORY_LIMITS": f"{instance.memory_mb}M"
         })
-        
-        cmd = ["docker-compose", action]
+
+        # Prefer modern Docker Compose plugin (`docker compose`) but fall back to legacy `docker-compose`.
+        # Some environments have a `docker` binary without the compose plugin; detect that explicitly.
+        compose_file = str(Path(instance.compose_file))
+        docker_bin = shutil.which("docker")
+        docker_compose_bin = shutil.which("docker-compose")
+
+        use_docker_compose_plugin = False
+        if docker_bin:
+            try:
+                probe = subprocess.run(
+                    [docker_bin, "compose", "version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                )
+                use_docker_compose_plugin = probe.returncode == 0
+            except OSError:
+                use_docker_compose_plugin = False
+            except subprocess.TimeoutExpired:
+                use_docker_compose_plugin = False
+
+        if use_docker_compose_plugin:
+            cmd: list[str] = [docker_bin, "compose", "-f", compose_file, "-p", instance.service_name, action]  # type: ignore[list-item]
+        elif docker_compose_bin:
+            cmd = [docker_compose_bin, "-f", compose_file, "-p", instance.service_name, action]
+        else:
+            return False, "Neither 'docker compose' nor 'docker-compose' is available"
         
         if action == "up":
             cmd.extend(["-d"])  # detached mode
@@ -701,13 +775,15 @@ class InstanceManagerApp(App):
                 capture_output=True,
                 text=True,
                 timeout=30,
-                env=env
+                env=env,
+                check=False,
             )
-            return result.returncode == 0
+            output = (result.stderr or "").strip() or (result.stdout or "").strip()
+            return result.returncode == 0, output
         except subprocess.TimeoutExpired:
-            return False
-        except Exception:
-            return False
+            return False, "compose timed out"
+        except OSError as e:
+            return False, f"Failed to run compose: {e}"
     
     def get_compose_status(self, instance: ToadboxInstance) -> InstanceStatus:
         """Get status of docker-compose service."""
@@ -730,13 +806,35 @@ class InstanceManagerApp(App):
         })
         
         try:
+            compose_file = str(Path(instance.compose_file))
+            docker_bin = shutil.which("docker")
+            docker_compose_bin = shutil.which("docker-compose")
+
+            use_docker_compose_plugin = False
+            if docker_bin:
+                probe = subprocess.run(
+                    [docker_bin, "compose", "version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                )
+                use_docker_compose_plugin = probe.returncode == 0
+
+            if use_docker_compose_plugin:
+                ps_cmd = [docker_bin, "compose", "-f", compose_file, "-p", instance.service_name, "ps", "--services", "--filter", "status=running"]  # type: ignore[list-item]
+            elif docker_compose_bin:
+                ps_cmd = [docker_compose_bin, "-f", compose_file, "-p", instance.service_name, "ps", "--services", "--filter", "status=running"]
+            else:
+                return InstanceStatus.ERROR
             result = subprocess.run(
-                ["docker-compose", "ps", "--services", "--filter", "status=running"],
+                ps_cmd,
                 cwd=compose_dir,
                 capture_output=True,
                 text=True,
                 timeout=10,
-                env=env
+                env=env,
+                check=False,
             )
             
             if result.returncode == 0 and instance.service_name in result.stdout:
@@ -913,7 +1011,7 @@ class InstanceManagerApp(App):
             if row_data and len(row_data) > 0:
                 instance_name = str(row_data[0])  # First column is the name
                 return self.instances.get(instance_name)
-        except (IndexError, KeyError):
+        except Exception:
             pass
         return None
     
@@ -939,8 +1037,10 @@ class InstanceManagerApp(App):
     def action_start_instance(self) -> None:
         """Start the selected instance."""
         instance = self.get_selected_instance()
-        if instance:
-            asyncio.create_task(self.start_instance_async(instance))
+        if not instance:
+            self.show_error("No instance selected")
+            return
+        asyncio.create_task(self.start_instance_async(instance))
     
     async def start_instance_async(self, instance: ToadboxInstance) -> None:
         """Start an instance asynchronously using docker-compose."""
@@ -949,7 +1049,8 @@ class InstanceManagerApp(App):
             self.refresh_table()
             
             # Start using docker-compose
-            if self.run_docker_compose(instance, "up"):
+            ok, msg = self.run_docker_compose(instance, "up")
+            if ok:
                 # Update status
                 instance.status = self.get_compose_status(instance)
                 self.save_config()
@@ -957,7 +1058,8 @@ class InstanceManagerApp(App):
             else:
                 instance.status = InstanceStatus.ERROR
                 self.refresh_table()
-                self.show_error(f"Failed to start instance '{instance.name}'")
+                detail = f": {msg}" if msg else ""
+                self.show_error(f"Failed to start instance '{instance.name}'{detail}")
                 
         except Exception as e:
             instance.status = InstanceStatus.ERROR
@@ -977,14 +1079,16 @@ class InstanceManagerApp(App):
             self.refresh_table()
             
             # Stop using docker-compose
-            if self.run_docker_compose(instance, "stop"):
+            ok, msg = self.run_docker_compose(instance, "stop")
+            if ok:
                 instance.status = InstanceStatus.STOPPED
                 self.save_config()
                 self.refresh_table()
             else:
                 instance.status = InstanceStatus.ERROR
                 self.refresh_table()
-                self.show_error(f"Failed to stop instance '{instance.name}'")
+                detail = f": {msg}" if msg else ""
+                self.show_error(f"Failed to stop instance '{instance.name}'{detail}")
                 
         except Exception as e:
             instance.status = InstanceStatus.ERROR
@@ -1004,7 +1108,8 @@ class InstanceManagerApp(App):
         
         try:
             # Remove using docker-compose
-            if self.run_docker_compose(instance, "down"):
+            ok, msg = self.run_docker_compose(instance, "down")
+            if ok:
                 # Remove volumes
                 if instance.compose_file:
                     compose_dir = Path(instance.compose_file).parent
@@ -1022,13 +1127,23 @@ class InstanceManagerApp(App):
                         "MEMORY_LIMITS": f"{instance.memory_mb}M"
                     })
                     
+                    down_cmd = (
+                        ["docker", "compose", "-f", str(Path(instance.compose_file)), "-p", instance.service_name, "down", "-v"]
+                        if shutil.which("docker")
+                        else ["docker-compose", "-f", str(Path(instance.compose_file)), "-p", instance.service_name, "down", "-v"]
+                    )
                     subprocess.run(
-                        ["docker-compose", "down", "-v"],
+                        down_cmd,
                         cwd=compose_dir,
                         capture_output=True,
                         timeout=30,
-                        env=env
+                        env=env,
+                        check=False,
+                        text=True,
                     )
+            else:
+                detail = f": {msg}" if msg else ""
+                self.show_error(f"Failed to remove instance '{instance.name}'{detail}")
             
             # Remove instance from config
             del self.instances[instance.name]
