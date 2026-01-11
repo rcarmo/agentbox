@@ -53,7 +53,12 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
 
     #name-input {
         width: 1fr;
-        min-width: 30;
+        min-width: 50;
+    }
+
+    #name-browse-row Button {
+        min-width: 10;
+        margin-left: 1;
     }
 
     #workspace-label {
