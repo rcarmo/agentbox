@@ -166,11 +166,10 @@ RUN apt-get update && \
 # Install UV (Python package manager)
 USER user
 WORKDIR /home/user
-RUN curl -LsSf https://astral.sh/uv/install.sh | HOME=/home/user sh && \ 
+RUN curl -LsSf https://astral.sh/uv/install.sh | HOME=/home/user sh && \
     echo 'export PATH="/home/user/.local/bin:$PATH"' >> /home/user/.bashrc && \
-    echo 'source /home/user/.local/bin/env"' >> /home/user/.bashrc && \
-    exec bash && \
-    uv tool install -U batrachian-toad 
+    echo 'source /home/user/.local/bin/env' >> /home/user/.bashrc && \
+    /home/user/.local/bin/uv tool install -U batrachian-toad
 
 # Set up xrdp session configuration
 USER user
@@ -218,6 +217,9 @@ sleep 1
 
 # Set up DISPLAY if not set
 export DISPLAY=${DISPLAY:-:10}
+
+# Ensure user-local tools (like toad) are on PATH
+export PATH="$HOME/.local/bin:$PATH"
 
 # Set up runtime dir
 export XDG_RUNTIME_DIR=/tmp/runtime-$(whoami)
