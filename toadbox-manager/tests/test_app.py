@@ -23,7 +23,9 @@ class DummyQuery:
         return self._table
 
 
-def test_suggest_ports_empty():
+def test_suggest_ports_empty(monkeypatch, tmp_path):
+    # isolate from real HOME/config
+    monkeypatch.setattr("toadbox_manager.app.Path.home", lambda: tmp_path)
     app = InstanceManagerApp()
     # no instances
     ssh, rdp = app.suggest_ports()
@@ -31,7 +33,9 @@ def test_suggest_ports_empty():
     assert rdp == 3390
 
 
-def test_get_selected_instance_none_on_empty_table(monkeypatch):
+def test_get_selected_instance_none_on_empty_table(monkeypatch, tmp_path):
+    # isolate from real HOME/config
+    monkeypatch.setattr("toadbox_manager.app.Path.home", lambda: tmp_path)
     app = InstanceManagerApp()
     dummy_table = DummyTable(rows=[], cursor_row=None)
     # monkeypatch query_one
@@ -39,7 +43,9 @@ def test_get_selected_instance_none_on_empty_table(monkeypatch):
     assert app.get_selected_instance() is None
 
 
-def test_get_selected_instance_returns_instance(monkeypatch):
+def test_get_selected_instance_returns_instance(monkeypatch, tmp_path):
+    # isolate from real HOME/config
+    monkeypatch.setattr("toadbox_manager.app.Path.home", lambda: tmp_path)
     app = InstanceManagerApp()
     inst = ToadboxInstance(name="foo", workspace_folder="/tmp/foo")
     app.instances["foo"] = inst

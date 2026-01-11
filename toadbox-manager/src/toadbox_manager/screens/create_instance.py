@@ -30,6 +30,14 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
         height: 1fr;
         layout: vertical;
         overflow: auto;
+        min-height: 0;
+    }
+
+    /* reduce top margin for the first child so the name field is visible */
+    #create-form > Label:first-child,
+    #create-form > Input:first-child,
+    #create-form > Select:first-child {
+        margin-top: 0;
     }
 
     #create-form > Label,
@@ -62,7 +70,9 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
     .button-row {
         width: 100%;
         align: right middle;
-        padding-top: 1;
+        padding-top: 0;
+        padding-bottom: 0;
+        height: auto;
     }
 
     .button-row Button {
