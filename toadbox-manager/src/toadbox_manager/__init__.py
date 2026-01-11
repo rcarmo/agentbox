@@ -1047,18 +1047,43 @@ TIPS:
         
         self.app.push_screen(HelpScreen(help_text))
     
+    def notify(self, message: str) -> None:
+        """Show a notification message."""
+        status_bar = self.query_one("#status-bar", Static)
+        status_bar.update(f"[green]{message}[/green]")
+    
     def action_screenshot(self) -> None:
         """Take a screenshot of the TUI."""
         try:
-            from textual.screenshot import take_screenshot
-            import time
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            filename = f"toadbox_manager_screenshot_{timestamp}.svg"
-            path = Path.cwd() / filename
-            take_screenshot(path)
-            self.notify(f"📸 Screenshot saved to: {path}")
-        except ImportError:
-            self.show_error("Screenshot feature requires Textual 0.50+")
+            # Try to import screenshot functionality
+            try:
+                from textual.screenshot import take_screenshot
+                screenshot_available = True
+            except ImportError:
+                screenshot_available = False
+            
+            if screenshot_available:
+                import time
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                filename = f"toadbox_manager_screenshot_{timestamp}.svg"
+                path = Path.cwd() / filename
+                take_screenshot(path)
+                self.notify(f"📸 Screenshot saved to: {path}")
+            else:
+                # Fallback: use Textual's built-in export method if available
+                try:
+                    from textual.app import App
+                    if hasattr(App, 'export_screenshot'):
+                        import time
+                        timestamp = time.strftime("%Y%m%d_%H%M%S")
+                        filename = f"toadbox_manager_screenshot_{timestamp}.svg"
+                        path = Path.cwd() / filename
+                        self.app.export_screenshot(path)
+                        self.notify(f"📸 Screenshot saved to: {path}")
+                    else:
+                        self.show_error("Screenshot not available in this Textual version")
+                except:
+                    self.show_error("Screenshot feature requires Textual 0.50+")
         except Exception as e:
             self.show_error(f"Failed to take screenshot: {e}")
 
