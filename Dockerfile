@@ -178,44 +178,70 @@ RUN mkdir -p ~/.vnc && \
     echo "lxterminal &" >> ~/.vnc/xstartup && \
     chmod +x ~/.vnc/xstartup
 
-# Create startup scripts
+# Runtime scripts (modeled after rcarmo/docker-templates desktop-chrome)
 USER root
-RUN echo '#!/bin/bash' > /start-ssh.sh && \
-    echo 'echo "Starting SSH server..."' >> /start-ssh.sh && \
-    echo '/usr/sbin/sshd -D &' >> /start-ssh.sh && \
-    echo 'echo "SSH server will start on port 22"' >> /start-ssh.sh && \
-    chmod +x /start-ssh.sh
 
-RUN echo '#!/bin/bash' > /start-vnc.sh && \
-    echo 'echo "Setting VNC password..."' >> /start-vnc.sh && \
-    echo 'su - user -c "echo changeme | vncpasswd -f > ~/.vnc/passwd"' >> /start-vnc.sh && \
-    echo 'su - user -c "chmod 600 ~/.vnc/passwd"' >> /start-vnc.sh && \
-    echo 'echo "Starting VNC server..."' >> /start-vnc.sh && \
-    echo 'su - user -c "vncserver :1 -geometry 1280x720 -depth 24"' >> /start-vnc.sh && \
-    echo 'echo "VNC server will start on port 5901"' >> /start-vnc.sh && \
-    chmod +x /start-vnc.sh
+# Ensure sshd can start
+RUN mkdir -p /var/run/sshd && chmod 755 /var/run/sshd
 
-RUN echo '#!/bin/bash' > /entrypoint.sh && \
-    echo 'echo "=== Toadbox Coding Agent Sandbox ==="' >> /entrypoint.sh && \
-    echo 'echo "VNC Password: changeme"' >> /entrypoint.sh && \
-    echo 'echo "SSH Password: changeme"' >> /entrypoint.sh && \
-    echo 'echo "User: user"' >> /entrypoint.sh && \
-    echo 'echo ""' >> /entrypoint.sh && \
-    echo 'echo "Services starting..."' >> /entrypoint.sh && \
-    echo '/start-ssh.sh' >> /entrypoint.sh && \
-    echo '/start-vnc.sh' >> /entrypoint.sh && \
-    echo 'echo "Services started. You can now connect via VNC or SSH."' >> /entrypoint.sh && \
-    echo 'echo "To start Toad, run: toad"' >> /entrypoint.sh && \
-    echo 'echo ""' >> /entrypoint.sh && \
-    echo 'echo "Container is ready. Keeping alive..."' >> /entrypoint.sh && \
-    echo 'tail -f /dev/null' >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
+# Start VNC as user, keep the container alive
+RUN cat > /quickstart.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+PASSWD="/home/user/.vnc/passwd"
+SETTINGS="-depth 24 -geometry 1280x720"
+AUTHMODE=""
+
+# cleanup /tmp
+rm -rf /tmp/.X* /tmp/ssh-* || true
+rm -f /home/user/.vnc/*.log || true
+
+for i in "$@"; do
+    case "$i" in
+        noauth)
+            AUTHMODE="-SecurityTypes None"
+            echo "*WARNING* VNC Server will be launched without authentication. Prefer SSH tunneling."
+            ;;
+    esac
+done
+
+# set password to "changeme" if not set already
+if [ ! -f "$PASSWD" ]; then
+    install -d -m 700 -o user -g user /home/user/.vnc
+    su - user -c "echo changeme | vncpasswd -f > ~/.vnc/passwd"
+    su - user -c "chmod 600 ~/.vnc/passwd"
+fi
+
+# start VNC server
+su - user -c "vncserver :1 $AUTHMODE $SETTINGS"
+echo "VNC server started on :1 (port 5901)"
+
+sleep infinity
+EOF
+RUN chmod +x /quickstart.sh
+
+# Simple entrypoint: run sshd in background, then run VNC quickstart in foreground
+RUN cat > /entrypoint.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+echo "=== Toadbox Coding Agent Sandbox ==="
+echo "User: user"
+echo "SSH Password: changeme"
+echo "VNC Password: changeme"
+echo ""
+
+echo "Starting sshd..."
+/usr/sbin/sshd
+
+echo "Starting VNC..."
+exec /quickstart.sh
+EOF
+RUN chmod +x /entrypoint.sh
 
 # Expose ports
 EXPOSE 22 5901
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint-user.sh", "/entrypoint.sh"]
-
-# Default command
-CMD []
