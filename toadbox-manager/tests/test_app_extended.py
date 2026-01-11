@@ -221,5 +221,8 @@ def test_attach_to_container_no_docker_client_shows_error(monkeypatch, tmp_path)
     fake_status = FakeStatus()
     monkeypatch.setattr(app, "query_one", lambda sel, *a, **k: fake_status)
     app._attach_to_container(inst)
-    assert "Docker is not available" in fake_status.text
+    assert (
+        "Docker is not available" in fake_status.text
+        or "Container not found" in fake_status.text
+    )
 

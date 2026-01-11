@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 import docker
 import yaml
 from docker.errors import DockerException
+import time
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
@@ -97,10 +98,23 @@ class InstanceManagerApp(App):
 
     def _init_docker_client(self) -> None:
         try:
-            self.docker_client = docker.from_env()
-            self.docker_client.ping()
-        except DockerException:
+            client = docker.from_env()
+            # Some environments may return None or a broken client; guard ping
+            try:
+                if client is not None:
+                    client.ping()
+                    self.docker_client = client
+                else:
+                    self.docker_client = None
+            except Exception:
+                self.docker_client = None
+        except Exception:
             self.docker_client = None
+        # Detect whether docker CLI or docker-compose is available as a fallback
+        try:
+            self.docker_cli_available = bool(shutil.which("docker") or shutil.which("docker-compose"))
+        except Exception:
+            self.docker_cli_available = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -262,7 +276,7 @@ class InstanceManagerApp(App):
         if not inst:
             self.show_error("No instance selected")
             return
-        if not self.docker_client:
+        if not self.docker_client and not getattr(self, "docker_cli_available", False):
             self.show_error("Docker is not available. Start Docker and retry.")
             return
         asyncio.create_task(self._start_async(inst))
@@ -470,29 +484,78 @@ class InstanceManagerApp(App):
     def _attach_to_container(self, instance: ToadboxInstance) -> None:
         # Attempt to attach to the running container and open a tmux session
         # Use docker exec to run tmux inside the container
-        if not self.docker_client:
-            self.show_error("Docker is not available. Start Docker and retry.")
-            return
+        # If SDK client available, prefer it
+        if self.docker_client:
+            try:
+                containers = self.docker_client.containers.list(filters={"name": instance.service_name})
+            except Exception:
+                containers = []
 
-        # Find container by service/hostname
-        try:
-            containers = self.docker_client.containers.list(filters={"name": instance.service_name})
-        except Exception:
-            containers = []
+            if not containers:
+                self.show_error("Container not found")
+                return
 
-        if not containers:
-            self.show_error("Container not found")
-            return
+            container = containers[0]
+            target = container.name if hasattr(container, "name") else container.id
 
-        container = containers[0]
-        # Use docker to exec tmux new -As0 inside the container
-        cmd = ["docker", "exec", "-it", container.name if hasattr(container, "name") else container.id, "tmux", "new", "-As0"]
-        try:
-            self.exit()
-            subprocess.run(cmd, check=False)
-        except Exception:
-            # If exec fails, fall back to showing an error
-            self.show_error("Failed to attach to container")
+            # Run tmux as the `agent` user inside the container. Provide the
+            # tmux command as a single argument to `su - agent -c`.
+            # Prefer docker exec with explicit user for a clean login as `agent`.
+            cmd = ["docker", "exec", "-it", "--user", "agent", target, "tmux", "new", "-As0"]
+            try:
+                self.exit()
+                # Small delay lets Textual restore terminal state; increase for reliability
+                time.sleep(0.25)
+                # Attempt to reset terminal modes before attaching
+                try:
+                    subprocess.run(["stty", "sane"], check=False)
+                except Exception:
+                    pass
+                result = subprocess.run(cmd, check=False)
+                if result and getattr(result, "returncode", 0) == 0:
+                    return
+                # fallback: replace the current process with docker exec for a fuller tty
+                try:
+                    os.execvp(cmd[0], cmd)
+                except Exception:
+                    pass
+                self.show_error("Failed to attach to container")
+                return
+            except Exception:
+                self.show_error("Failed to attach to container")
+                return
+
+        # Fallback to Docker CLI if available
+        if getattr(self, "docker_cli_available", False):
+            try:
+                # Find a container name matching the service
+                probe = subprocess.run(
+                    ["docker", "ps", "--filter", f"name={instance.service_name}", "--format", "{{.Names}}"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                names = [n for n in (probe.stdout or "").splitlines() if n.strip()]
+                if not names:
+                    self.show_error("Container not found")
+                    return
+                target = names[0]
+                cmd = ["docker", "exec", "-it", "--user", "agent", target, "tmux", "new", "-As0"]
+                self.exit()
+                # Small delay and tty reset for reliability
+                time.sleep(0.25)
+                try:
+                    subprocess.run(["stty", "sane"], check=False)
+                except Exception:
+                    pass
+                subprocess.run(cmd, check=False)
+                return
+            except Exception:
+                self.show_error("Failed to attach to container")
+                return
+
+        # If we reach here, neither SDK nor CLI are available
+        self.show_error("Docker is not available. Start Docker and retry.")
 
     def _connect_rdp(self, instance: ToadboxInstance) -> None:
         rdp_commands = [

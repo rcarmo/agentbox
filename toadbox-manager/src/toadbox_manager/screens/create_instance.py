@@ -48,15 +48,16 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
     #name-browse-row {
         width: 100%;
         layout: horizontal;
+        height: 3;
         align: left top;
     }
 
     #name-input {
         width: 1fr;
         min-width: 50;
-        min-height: 6;
+        height: 1;
         padding-top: 0;
-        padding-bottom: 0;
+        padding-bottom: 3;
     }
 
     #name-browse-row Button {
