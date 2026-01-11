@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  toadbox:
+    build: .
+    container_name: ${COMPOSE_PROJECT_NAME:-toadbox}
+    hostname: ${COMPOSE_PROJECT_NAME:-toadbox}
+    ports:
+      - "${SSH_PORT:-2222}:22"    # SSH
+      - "${VNC_PORT:-5901}:5901"  # VNC
+    volumes:
+      # Mount workspace directory
+      - ${WORKSPACE_PATH:-./}:/workspace
+      # Persist Docker data per instance
+      - ${COMPOSE_PROJECT_NAME:-toadbox}_docker_data:/var/lib/docker
+      # Persist user home directory per instance
+      - ${COMPOSE_PROJECT_NAME:-toadbox}_home:/home/user
+    privileged: true  # Required for Docker-in-Docker
+    environment:
+      - DISPLAY=:1
+      - TERM=xterm-256color
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMITS:-2}'
+          memory: '${MEMORY_LIMITS:-4G}'
+    networks:
+      - toadbox_network
+
+volumes:
+  toadbox_docker_data:
+    name: ${COMPOSE_PROJECT_NAME:-toadbox}_docker_data
+  toadbox_home:
+    name: ${COMPOSE_PROJECT_NAME:-toadbox}_home
+
+networks:
+  toadbox_network:
+    driver: bridge

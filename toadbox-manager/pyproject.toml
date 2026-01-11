@@ -1,0 +1,20 @@
+[project]
+name = "toadbox-manager"
+version = "0.1.0"
+description = "A TUI-based manager for Toadbox container instances"
+readme = "README.md"
+requires-python = ">=3.12.3"
+dependencies = [
+    "docker>=7.1.0",
+    "rich>=14.2.0",
+    "textual>=7.1.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+toadbox-manager = "main:main_entry"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
