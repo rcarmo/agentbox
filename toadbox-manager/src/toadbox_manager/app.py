@@ -28,6 +28,7 @@ class InstanceManagerApp(App):
 
     BINDINGS = [
         Binding("c", "create_instance", "Create"),
+        Binding("a", "attach", "Attach"),
         Binding("s", "start_instance", "Start"),
         Binding("t", "stop_instance", "Stop"),
         Binding("d", "delete_instance", "Delete"),
@@ -112,6 +113,7 @@ class InstanceManagerApp(App):
                     Button("Start", id="start-btn"),
                     Button("Stop", id="stop-btn"),
                     Button("Delete", id="delete-btn"),
+                        Button("Attach", id="attach-btn"),
                     Button("SSH", id="ssh-btn"),
                     Button("RDP", id="rdp-btn"),
                     Button("Refresh", id="refresh-btn"),
@@ -132,6 +134,7 @@ class InstanceManagerApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:  # type: ignore[override]
         mapping = {
             "create-btn": self.action_create_instance,
+            "attach-btn": self.action_attach_instance,
             "start-btn": self.action_start_instance,
             "stop-btn": self.action_stop_instance,
             "delete-btn": self.action_delete_instance,
@@ -452,6 +455,40 @@ class InstanceManagerApp(App):
             self.show_error("Select a running instance")
             return
         self._connect_rdp(inst)
+
+    def action_attach_instance(self) -> None:
+        inst = self.get_selected_instance()
+        if not inst or inst.status != InstanceStatus.RUNNING:
+            self.show_error("Select a running instance")
+            return
+        self._attach_to_container(inst)
+
+    def _attach_to_container(self, instance: ToadboxInstance) -> None:
+        # Attempt to attach to the running container and open a tmux session
+        # Use docker exec to run tmux inside the container
+        if not self.docker_client:
+            self.show_error("Docker is not available. Start Docker and retry.")
+            return
+
+        # Find container by service/hostname
+        try:
+            containers = self.docker_client.containers.list(filters={"name": instance.service_name})
+        except Exception:
+            containers = []
+
+        if not containers:
+            self.show_error("Container not found")
+            return
+
+        container = containers[0]
+        # Use docker to exec tmux new -As0 inside the container
+        cmd = ["docker", "exec", "-it", container.name if hasattr(container, "name") else container.id, "tmux", "new", "-As0"]
+        try:
+            self.exit()
+            subprocess.run(cmd, check=False)
+        except Exception:
+            # If exec fails, fall back to showing an error
+            self.show_error("Failed to attach to container")
 
     def _connect_rdp(self, instance: ToadboxInstance) -> None:
         rdp_commands = [

@@ -2,14 +2,19 @@ import os
 from types import SimpleNamespace
 
 import pytest
+from docker.errors import DockerException
 
 from toadbox_manager.app import InstanceManagerApp
 from toadbox_manager.models import ToadboxInstance, InstanceStatus
 
 
 def make_app(monkeypatch, tmp_path):
-    # Prevent docker.from_env side-effects during app init
-    monkeypatch.setattr("toadbox_manager.app.docker.from_env", lambda: None)
+    # Prevent docker.from_env side-effects during app init by causing it to raise
+    # DockerException so the app falls back to docker_client = None
+    monkeypatch.setattr(
+        "toadbox_manager.app.docker.from_env",
+        lambda: (_ for _ in ()).throw(DockerException()),
+    )
     app = InstanceManagerApp()
     # Keep compose files in temp dir to avoid touching home
     app.compose_dir = tmp_path
@@ -170,3 +175,51 @@ def test_quick_connect_parses_ports_and_calls_connect(monkeypatch, tmp_path):
     assert "inst" in called
     assert called["inst"].ssh_port == 2233
     assert called["inst"].rdp_port == 3344
+
+
+def test_attach_to_container_executes_docker(monkeypatch, tmp_path):
+    app = make_app(monkeypatch, tmp_path)
+    # fake docker client with a container object
+    class FakeContainer:
+        def __init__(self):
+            self.name = "toadbox_svc"
+
+    class FakeContainers:
+        def list(self, filters=None):
+            return [FakeContainer()]
+
+    app.docker_client = SimpleNamespace(containers=FakeContainers())
+    inst = ToadboxInstance(name="svc", workspace_folder=str(tmp_path / "svc"), status=InstanceStatus.RUNNING)
+    called = {}
+
+    def fake_exit():
+        called["exit"] = True
+
+    def fake_run(cmd, **kwargs):
+        called["cmd"] = cmd
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(app, "exit", fake_exit)
+    monkeypatch.setattr("subprocess.run", fake_run)
+    app._attach_to_container(inst)
+    assert called.get("exit") is True
+    assert "docker" in called.get("cmd", [])[0]
+
+
+def test_attach_to_container_no_docker_client_shows_error(monkeypatch, tmp_path):
+    app = make_app(monkeypatch, tmp_path)
+    app.docker_client = None
+    inst = ToadboxInstance(name="svc", workspace_folder=str(tmp_path / "svc"), status=InstanceStatus.RUNNING)
+    # capture status bar updates via query_one
+    class FakeStatus:
+        def __init__(self):
+            self.text = ""
+
+        def update(self, txt):
+            self.text = txt
+
+    fake_status = FakeStatus()
+    monkeypatch.setattr(app, "query_one", lambda sel, *a, **k: fake_status)
+    app._attach_to_container(inst)
+    assert "Docker is not available" in fake_status.text
+
