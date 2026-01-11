@@ -71,9 +71,9 @@ RUN apt-get update && apt-get upgrade -y && \
 RUN ssh-keygen -A
 
 # Create user account 
-RUN useradd -m -s /bin/bash -G sudo user && \
-    echo 'user:changeme' | chpasswd && \
-    echo 'user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+RUN useradd -m -s /bin/bash -G sudo agent && \
+    echo 'agent:changeme' | chpasswd && \
+    echo 'agent ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Set up entrypoint to handle PUID/PGID properly
 RUN echo '#!/bin/bash' > /entrypoint-user.sh && \
@@ -81,28 +81,28 @@ RUN echo '#!/bin/bash' > /entrypoint-user.sh && \
     echo '' >> /entrypoint-user.sh && \
     echo '# Simple PUID/PGID setup' >> /entrypoint-user.sh && \
     echo 'if [ -n "$PUID" ] && [ -n "$PGID" ]; then' >> /entrypoint-user.sh && \
-    echo '    echo "Setting up user with UID=$PUID and GID=$PGID"' >> /entrypoint-user.sh && \
+    echo '    echo "Setting up agent with UID=$PUID and GID=$PGID"' >> /entrypoint-user.sh && \
     echo '    # Update user UID and GID' >> /entrypoint-user.sh && \
-    echo '    usermod -o -u "$PUID" user || true' >> /entrypoint-user.sh && \
-    echo '    groupmod -o -g "$PGID" user || true' >> /entrypoint-user.sh && \
-    echo '    usermod -g "$PGID" user || true' >> /entrypoint-user.sh && \
+    echo '    usermod -o -u "$PUID" agent || true' >> /entrypoint-user.sh && \
+    echo '    groupmod -o -g "$PGID" agent || true' >> /entrypoint-user.sh && \
+    echo '    usermod -g "$PGID" agent || true' >> /entrypoint-user.sh && \
     echo '    # Fix ownership of user directories' >> /entrypoint-user.sh && \
-    echo '    chown -R user:user /home/user || true' >> /entrypoint-user.sh && \
-    echo '    chown -R user:user /home/linuxbrew || true' >> /entrypoint-user.sh && \
-    echo '    [ -d /workspace ] && chown -R user:user /workspace || true' >> /entrypoint-user.sh && \
+    echo '    chown -R agent:agent /home/agent || true' >> /entrypoint-user.sh && \
+    echo '    chown -R agent:agent /home/linuxbrew || true' >> /entrypoint-user.sh && \
+    echo '    [ -d /workspace ] && chown -R agent:agent /workspace || true' >> /entrypoint-user.sh && \
     echo 'fi' >> /entrypoint-user.sh && \
     echo '' >> /entrypoint-user.sh && \
     echo 'exec "$@"' >> /entrypoint-user.sh && \
     chmod +x /entrypoint-user.sh
 
 # Set user home
-ENV HOME=/home/user
+ENV HOME=/home/agent
 
 # Install Homebrew
-USER user
-WORKDIR /home/user
+USER agent
+WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/user/.bashrc && \
+    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/agent/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
     brew update
 
@@ -124,7 +124,7 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    usermod -aG docker user
+    usermod -aG docker agent
 
 # Install xrdp and minimal desktop
 RUN apt-get update && \
@@ -164,16 +164,16 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install UV (Python package manager)
-USER user
-WORKDIR /home/user
-RUN curl -LsSf https://astral.sh/uv/install.sh | HOME=/home/user sh && \
-    echo 'export PATH="/home/user/.local/bin:$PATH"' >> /home/user/.bashrc && \
-    echo 'source /home/user/.local/bin/env' >> /home/user/.bashrc && \
-    /home/user/.local/bin/uv tool install -U batrachian-toad
+USER agent
+WORKDIR /home/agent
+RUN curl -LsSf https://astral.sh/uv/install.sh | HOME=/home/agent sh && \
+    echo 'export PATH="/home/agent/.local/bin:$PATH"' >> /home/agent/.bashrc && \
+    echo 'source /home/agent/.local/bin/env' >> /home/agent/.bashrc && \
+    /home/agent/.local/bin/uv tool install -U batrachian-toad
 
 # Set up xrdp session configuration
-USER user
-WORKDIR /home/user
+USER agent
+WORKDIR /home/agent
 RUN mkdir -p ~/.config/openbox && \
     cat > ~/.xsession <<'XSESSION'
 #!/bin/sh
@@ -207,7 +207,7 @@ RUN chmod +x ~/.xsession
 # Runtime scripts (modeled after rcarmo/docker-templates desktop-chrome)
 USER root
 
-# Configure xrdp to use user's .xsession
+# Configure xrdp to use agent's .xsession
 RUN cat > /etc/xrdp/startwm.sh <<'STARTWM'
 #!/bin/bash
 set -e
@@ -218,7 +218,7 @@ sleep 1
 # Set up DISPLAY if not set
 export DISPLAY=${DISPLAY:-:10}
 
-# Ensure user-local tools (like toad) are on PATH
+# Ensure agent-local tools (like toad) are on PATH
 export PATH="$HOME/.local/bin:$PATH"
 
 # Set up runtime dir
@@ -262,9 +262,9 @@ rm -rf /tmp/.X* /tmp/ssh-* || true
 mkdir -p /var/run/xrdp
 chown xrdp:xrdp /var/run/xrdp
 
-# Create .xsession for user if it doesn't exist (home is a volume)
-if [ ! -f /home/user/.xsession ]; then
-    cat > /home/user/.xsession <<'XSESSION'
+# Create .xsession for agent if it doesn't exist (home is a volume)
+if [ ! -f /home/agent/.xsession ]; then
+    cat > /home/agent/.xsession <<'XSESSION'
 #!/bin/sh
 # xrdp session script
 unset SESSION_MANAGER
@@ -291,8 +291,8 @@ lxterminal &
 # Run openbox in foreground
 exec openbox
 XSESSION
-    chmod +x /home/user/.xsession
-    chown user:user /home/user/.xsession
+    chmod +x /home/agent/.xsession
+    chown agent:agent /home/agent/.xsession
 fi
 
 # Start xrdp service
@@ -302,7 +302,7 @@ XRDP_PID=$!
 
 echo "xrdp started on port 3389"
 echo "Connect with any RDP client using:"
-echo "  Username: user"
+echo "  Username: agent"
 echo "  Password: changeme"
 
 # Wait for xrdp to exit
@@ -316,9 +316,9 @@ RUN cat > /entrypoint.sh <<'EOF'
 set -euo pipefail
 
 echo "=== Toadbox Coding Agent Sandbox ==="
-echo "User: user"
+echo "User: agent"
 echo "SSH Password: changeme"
-echo "RDP: Connect to port 3389 with user/changeme"
+echo "RDP: Connect to port 3389 with agent/changeme"
 echo ""
 
 echo "Starting sshd..."

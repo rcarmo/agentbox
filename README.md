@@ -6,7 +6,7 @@ There's no perfect way to sandbox agents (yet), but at least we can try limiting
 
 Toadbox is a simple Docker-based coding agent sandbox featuring [Batrachian Toad](https://github.com/batrachianai/toad) as a general-purpose coding assistant TUI, which will help you boostrap pretty much _any_ current AI agent.
 
-The container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, `ssh`/`mosh` server, and a minimal VNC desktop environment.
+The container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, `ssh`/`mosh` server, and a minimal RDP desktop environment.
 
 ## Motivation
 
@@ -20,7 +20,7 @@ I found myself wanting to quickly spin up isolated coding environments for AI ag
 - **Docker-in-Docker**: Docker support for containerized workflows (requires you to run the container in privileged mode, so be careful)
 - **Remote Access**: SSH (port 2222) and RDP (port 3390) connectivity
 - **Minimal Desktop**: Openbox window manager with minimal utilities, so you can run graphical applications, Playwright, etc.
-- **Persistent Storage**: optional data and user home directory persistence
+- **Persistent Storage**: optional data and agent home directory persistence
 
 ## Roadmap
 
@@ -75,13 +75,13 @@ docker-compose up -d
 **Via RDP (Graphical Desktop):**
 
 - RDP Client: `localhost:3390`
-- Username: `user`
+- Username: `agent`
 - Password: `changeme`
 
 **Via SSH (Terminal):**
 
 ```bash
-ssh user@localhost -p 2222
+ssh agent@localhost -p 2222
 # Password: changeme
 ```
 
@@ -96,7 +96,7 @@ docker run -d \
   --name toadbox \
   --privileged \
   -p 2222:22 \
-  -p 5901:5901 \
+  -p 3389:3389 \
   -v $(pwd):/workspace \
   toadbox
 ```
