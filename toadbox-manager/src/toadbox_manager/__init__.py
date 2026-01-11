@@ -7,6 +7,7 @@ import pwd
 import signal
 import subprocess
 import sys
+import time
 import yaml
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -14,6 +15,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 
 import docker
+from docker.errors import DockerException
 from rich.console import Console
 from rich.table import Table
 from textual import events
@@ -80,23 +82,32 @@ class FolderPickerScreen(ModalScreen):
     
     def __init__(self, start_path: Optional[Path] = None):
         super().__init__()
-        self.start_path = start_path or Path.home()
+        # Default to current working directory for convenience; fall back to home.
+        try:
+            cwd = Path.cwd()
+        except Exception:
+            cwd = Path.home()
+        self.start_path = start_path or cwd
         self.selected_path: Optional[Path] = None
     
     def compose(self) -> ComposeResult:
         with Container(id="folder-picker-dialog"):
             yield Label("📁 Select Workspace Folder", classes="dialog-title")
             yield Label(f"Starting from: {self.start_path}")
-            yield DirectoryTree(str(self.start_path), id="folder-tree")
+            # Wrap the tree to keep the dialog usable on small terminals.
+            with ScrollableContainer(id="folder-tree-container"):
+                yield DirectoryTree(str(self.start_path), id="folder-tree")
             with Horizontal(id="folder-picker-buttons"):
                 yield Button("Select", variant="primary", id="select-button")
                 yield Button("Cancel", variant="default", id="cancel-button")
     
+    def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
+        """Handle directory selection in the tree."""
+        self.selected_path = Path(event.path)
+
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
-        """Handle folder selection."""
-        path = Path(event.path)
-        if path.is_dir():
-            self.selected_path = path
+        """Fallback: if a file is selected, treat its parent directory as the workspace."""
+        self.selected_path = Path(event.path).parent
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "select-button":
@@ -109,7 +120,11 @@ class FolderPickerScreen(ModalScreen):
 class CreateInstanceScreen(ModalScreen):
     """Modal screen for creating new instances."""
     
-    BINDINGS = [("escape", "app.pop_screen", "Close")]
+    BINDINGS = [
+        ("escape", "app.pop_screen", "Close"),
+        ("tab", "focus_next", "Next field"),
+        ("shift+tab", "focus_previous", "Previous field"),
+    ]
     
     def __init__(self, workspace_folder: Optional[Path] = None):
         super().__init__()
@@ -118,62 +133,71 @@ class CreateInstanceScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         with Container(id="create-dialog"):
             yield Label("Create New Toadbox Instance", classes="dialog-title")
-            
-            yield Label("Instance Name:")
-            name_input = Input(placeholder="my-toadbox", id="name-input")
-            if self.workspace_folder:
-                name_input.value = self.workspace_folder.name
-            yield name_input
-            
-            yield Label("Workspace Folder:")
-            with Horizontal():
-                workspace_label = Label(str(self.workspace_folder or "No folder selected"), id="workspace-label")
-                yield workspace_label
-                yield Button("Browse", variant="default", id="browse-button")
-            
-            with Horizontal():
-                with Vertical():
-                    yield Label("CPU Cores:")
-                    yield Select([(str(i), str(i)) for i in range(1, 9)], value="2", id="cpu-select")
-                with Vertical():
-                    yield Label("Memory (MB):")
-                    yield Select(
-                        [("2048", "2048"), ("4096", "4096"), ("8192", "8192"), ("16384", "16384")],
-                        value="4096", id="memory-select"
-                    )
-            
-            with Horizontal():
-                with Vertical():
-                    yield Label("Priority:")
-                    yield Select([("low", "low"), ("medium", "medium"), ("high", "high")], 
-                                value="low", id="priority-select")
-                with Vertical():
-                    yield Label("SSH Port:")
-                    yield Input(placeholder="2222", value="2222", id="ssh-port-input")
-            
-            yield Label("VNC Port:")
-            yield Input(placeholder="5901", value="5901", id="vnc-port-input")
-            
-            # Get current user ID for PUID/PGID defaults
-            try:
-                current_user = pwd.getpwuid(os.getuid())
-                default_puid = str(current_user.pw_uid)
-                default_pgid = str(current_user.pw_gid)
-            except:
-                default_puid = "1000"
-                default_pgid = "1000"
-            
-            with Horizontal():
-                with Vertical():
-                    yield Label("User ID (PUID):")
-                    yield Input(placeholder=default_puid, value=default_puid, id="puid-input")
-                with Vertical():
-                    yield Label("Group ID (PGID):")
-                    yield Input(placeholder=default_pgid, value=default_pgid, id="pgid-input")
-            
+
+            # Scrollable form so the dialog works on small terminals.
+            with ScrollableContainer(id="create-form"):
+                yield Label("Instance Name / Workspace:")
+                with Horizontal(id="name-browse-row"):
+                    name_input = Input(placeholder="my-toadbox", id="name-input")
+                    if self.workspace_folder:
+                        name_input.value = self.workspace_folder.name
+                    yield name_input
+                    yield Button("Browse", variant="default", id="browse-button")
+
+                yield Label("Workspace Folder:")
+                yield Label(str(self.workspace_folder or "No folder selected"), id="workspace-label")
+
+                with Container(classes="two-col"):
+                    with Vertical(classes="col"):
+                        yield Label("CPU Cores:")
+                        yield Select([(str(i), str(i)) for i in range(1, 9)], value="2", id="cpu-select")
+                    with Vertical(classes="col"):
+                        yield Label("Memory (MB):")
+                        yield Select(
+                            [("2048", "2048"), ("4096", "4096"), ("8192", "8192"), ("16384", "16384")],
+                            value="4096",
+                            id="memory-select",
+                        )
+
+                with Container(classes="two-col"):
+                    with Vertical(classes="col"):
+                        yield Label("Priority:")
+                        yield Select(
+                            [("low", "low"), ("medium", "medium"), ("high", "high")],
+                            value="low",
+                            id="priority-select",
+                        )
+                    with Vertical(classes="col"):
+                        yield Label("SSH Port:")
+                        yield Input(placeholder="2222", value="2222", id="ssh-port-input")
+
+                yield Label("VNC Port:")
+                yield Input(placeholder="5901", value="5901", id="vnc-port-input")
+
+                # Get current user ID for PUID/PGID defaults
+                try:
+                    current_user = pwd.getpwuid(os.getuid())
+                    default_puid = str(current_user.pw_uid)
+                    default_pgid = str(current_user.pw_gid)
+                except Exception:
+                    default_puid = "1000"
+                    default_pgid = "1000"
+
+                with Container(classes="two-col"):
+                    with Vertical(classes="col"):
+                        yield Label("User ID (PUID):")
+                        yield Input(placeholder=default_puid, value=default_puid, id="puid-input")
+                    with Vertical(classes="col"):
+                        yield Label("Group ID (PGID):")
+                        yield Input(placeholder=default_pgid, value=default_pgid, id="pgid-input")
+
             with Horizontal(classes="button-row"):
                 yield Button("Create", variant="primary", id="create-button")
                 yield Button("Cancel", variant="default", id="cancel-button")
+
+    def on_mount(self) -> None:
+        # Ensure the dialog is immediately usable with keyboard.
+        self.query_one("#name-input", Input).focus()
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "browse-button":
@@ -437,12 +461,11 @@ class InstanceManagerApp(App):
     }
     
     #startup-container {
-        align: center middle;
-        width: 80%;
-        height: 60%;
+        width: 100%;
+        height: 100%;
         background: $surface;
-        border: thick $primary;
-        padding: 2;
+        border: none;
+        padding: 1;
     }
     
     #title {
@@ -465,22 +488,76 @@ class InstanceManagerApp(App):
     
     #running-instances-table {
         margin: 1 0;
-        height: 12;
+        height: 1fr;
     }
     
     #create-dialog, #folder-picker-dialog, #help-dialog {
         align: center middle;
-        width: 80%;
-        height: 80%;
+        width: 90%;
+        height: 90%;
         background: $surface;
         border: thick $primary;
         padding: 2;
+    }
+
+    #create-dialog {
+        padding: 1;
+    }
+
+    #create-form {
+        height: 1fr;
+        margin: 1 0;
+    }
+
+    #workspace-row {
+        width: 100%;
+    }
+
+    #name-browse-row {
+        width: 100%;
+        margin: 0 0 1 0;
+    }
+
+    #name-input {
+        width: 1fr;
+        margin-right: 1;
+    }
+
+    #workspace-label {
+        width: 1fr;
+        margin-right: 1;
+    }
+
+    .two-col {
+        width: 100%;
+        layout: grid;
+        grid-size: 2 1;
+        grid-columns: 1fr 1fr;
+        grid-rows: auto;
+        margin: 1 0;
+    }
+
+    .col {
+        width: 100%;
+    }
+
+    .col:first-child {
+        margin-right: 1;
+    }
+
+    Input, Select {
+        width: 100%;
+    }
+
+    #folder-tree-container {
+        height: 1fr;
+        border: solid $primary;
+        margin: 1 0;
     }
     
     #help-content {
         height: 1fr;
         margin: 1 0;
-        white-space: pre;
     }
     
     .dialog-title {
@@ -503,11 +580,20 @@ class InstanceManagerApp(App):
         self.docker_client = None
         self.load_config()
         
+        # Docker client preflight: on macOS/Linux this typically fails when the daemon isn't running
+        # or when the Docker socket isn't accessible.
+        self.console = Console()
         try:
             self.docker_client = docker.from_env()
-        except Exception as e:
-            self.console = Console()
-            self.console.print(f"[red]Failed to connect to Docker: {e}[/red]")
+            # Force a ping so we fail early with a clearer error.
+            self.docker_client.ping()
+        except DockerException as e:
+            self.docker_client = None
+            self.console.print("[red]Failed to connect to Docker.[/red]")
+            self.console.print(f"[red]{e}[/red]")
+            self.console.print(
+                "[yellow]Make sure Docker Desktop (or dockerd) is running and your user can access the Docker socket.[/yellow]"
+            )
     
     def generate_docker_compose(self, instance: ToadboxInstance) -> Dict[str, Any]:
         """Generate docker-compose configuration for an instance."""
@@ -1015,6 +1101,14 @@ class InstanceManagerApp(App):
     def action_refresh(self) -> None:
         """Refresh instance statuses."""
         asyncio.create_task(self.refresh_statuses_async())
+
+    async def refresh_statuses_async(self) -> None:
+        """Refresh all instance statuses from docker-compose."""
+        for instance in self.instances.values():
+            instance.status = self.get_compose_status(instance)
+
+        self.save_config()
+        self.refresh_table()
     
     def action_help(self) -> None:
         """Show help dialog."""
@@ -1047,45 +1141,35 @@ TIPS:
         
         self.app.push_screen(HelpScreen(help_text))
     
-    def notify(self, message: str) -> None:
-        """Show a notification message."""
-        status_bar = self.query_one("#status-bar", Static)
-        status_bar.update(f"[green]{message}[/green]")
-    
     def action_screenshot(self) -> None:
         """Take a screenshot of the TUI."""
         try:
-            # Try to import screenshot functionality
-            try:
-                from textual.screenshot import take_screenshot
-                screenshot_available = True
-            except ImportError:
-                screenshot_available = False
+            import time
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            filename = f"toadbox_manager_screenshot_{timestamp}.svg"
+            path = Path.cwd() / filename
             
-            if screenshot_available:
-                import time
-                timestamp = time.strftime("%Y%m%d_%H%M%S")
-                filename = f"toadbox_manager_screenshot_{timestamp}.svg"
-                path = Path.cwd() / filename
-                take_screenshot(path)
-                self.notify(f"📸 Screenshot saved to: {path}")
-            else:
-                # Fallback: use Textual's built-in export method if available
-                try:
-                    from textual.app import App
-                    if hasattr(App, 'export_screenshot'):
-                        import time
-                        timestamp = time.strftime("%Y%m%d_%H%M%S")
-                        filename = f"toadbox_manager_screenshot_{timestamp}.svg"
-                        path = Path.cwd() / filename
-                        self.app.export_screenshot(path)
-                        self.notify(f"📸 Screenshot saved to: {path}")
-                    else:
-                        self.show_error("Screenshot not available in this Textual version")
-                except:
-                    self.show_error("Screenshot feature requires Textual 0.50+")
+            # Show notification in status bar
+            status_bar = self.query_one("#status-bar", Static)
+            status_bar.update(f"[green]📸 Taking screenshot...[/green]")
+            
+            # Use basic screenshot capture
+            try:
+                # Try newer Textual screenshot API
+                self.app.save_screenshot(str(path))
+                status_bar.update(f"[green]📸 Screenshot saved to: {path}[/green]")
+            except AttributeError:
+                # Fallback for older Textual versions
+                status_bar.update("[yellow]📸 Screenshot not available in this Textual version[/yellow]")
         except Exception as e:
-            self.show_error(f"Failed to take screenshot: {e}")
+            status_bar = self.query_one("#status-bar", Static)
+            status_bar.update(f"[red]Failed to take screenshot: {e}[/red]")
+
+    def show_error(self, message: str) -> None:
+        """Show an error message."""
+        self.bell()
+        status_bar = self.query_one("#status-bar", Static)
+        status_bar.update(f"[red]Error: {message}[/red]")
 
 
 class HelpScreen(ModalScreen):
@@ -1106,20 +1190,6 @@ class HelpScreen(ModalScreen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close-button":
             self.dismiss()
-    
-    async def refresh_statuses_async(self) -> None:
-        """Refresh all instance statuses from docker-compose."""
-        for instance in self.instances.values():
-            instance.status = self.get_compose_status(instance)
-        
-        self.save_config()
-        self.refresh_table()
-    
-    def show_error(self, message: str) -> None:
-        """Show an error message."""
-        self.bell()
-        status_bar = self.query_one("#status-bar", Static)
-        status_bar.update(f"[red]Error: {message}[/red]")
 
 
 def main():
