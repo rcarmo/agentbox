@@ -16,10 +16,11 @@ I found myself wanting to quickly spin up isolated coding environments for AI ag
 
 - **[Batrachian Toad](https://github.com/batrachianai/toad)**: A unified interface for AI in your terminal
 - **Development Environment**: Debian Bookworm with essential development tools
+- **Visual Studio Code**: for ARM/Intel
 - **Package Managers**: Homebrew and APT package management 
 - **Docker-in-Docker**: Docker support for containerized workflows (requires you to run the container in privileged mode, so be careful)
 - **Remote Access**: SSH (port 2222) and RDP (port 3390) connectivity
-- **Minimal Desktop**: Openbox window manager with minimal utilities, so you can run graphical applications, Playwright, etc.
+- **Minimal Desktop**: XFCE desktop with minimal utilities, so you can run graphical applications, Playwright, etc.
 - **Persistent Storage**: optional data and agent home directory persistence
 
 ## Roadmap
