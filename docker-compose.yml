@@ -10,7 +10,6 @@ x-agent: &agent
   image: ghcr.io/rcarmo/agentbox:latest
   environment:
     <<: *env
-    WORKSPACE_NAME: default
   restart: unless-stopped
   deploy:
     resources:
@@ -20,10 +19,6 @@ x-agent: &agent
   privileged: true  # Required for Docker-in-Docker
   networks:
     - the_matrix
-  volumes:
-    - local:/home/agent/.local
-    - vibe:/home/agent/.vibe
-    - ./workspaces/${WORKSPACE_NAME:-default}:/workspace
 
 services:
   syncthing:
@@ -55,10 +50,13 @@ services:
     environment:
       <<: *env
       ENABLE_DOCKER: "true"
-      WORKSPACE_NAME: gotel
     ports:
       - "3000:3000"  # web service
       - "3020:3020"  # web service
+    volumes:
+      - local:/home/agent/.local
+      - vibe:/home/agent/.vibe
+      - ./workspaces/gotel:/workspace
 
   guerite:
     <<: *agent
@@ -67,15 +65,19 @@ services:
     environment:
       <<: *env
       ENABLE_DOCKER: "true"
-      WORKSPACE_NAME: guerite
+    volumes:
+      - local:/home/agent/.local
+      - vibe:/home/agent/.vibe
+      - ./workspaces/guerite:/workspace
 
   feed-summarizer:
     <<: *agent
     container_name: agent-feed-summarizer
     hostname: feed-summarizer
-    environment:
-      <<: *env
-      WORKSPACE_NAME: feed-summarizer
+    volumes:
+      - local:/home/agent/.local
+      - vibe:/home/agent/.vibe
+      - ./workspaces/feed-summarizer:/workspace
 
   go-html5:
     <<: *agent
@@ -83,9 +85,10 @@ services:
     hostname: go-html5
     ports:
       - "3000:3000"  # web service
-    environment:
-      <<: *env
-      WORKSPACE_NAME: go-html5
+    volumes:
+      - local:/home/agent/.local
+      - vibe:/home/agent/.vibe
+      - ./workspaces/go-html5:/workspace
 
   toad:
     <<: *agent
@@ -93,9 +96,10 @@ services:
     hostname: toad
     ports:
       - "8001:8000"  # web service
-    environment:
-      <<: *env
-      WORKSPACE_NAME: toad
+    volumes:
+      - local:/home/agent/.local
+      - vibe:/home/agent/.vibe
+      - ./workspaces/toad:/workspace
 
   agentbox:
     <<: *agent
@@ -103,9 +107,10 @@ services:
     hostname: agent
     ports:
       - "8002:8000"  # web service
-    environment:
-      <<: *env
-      WORKSPACE_NAME: agentbox
+    volumes:
+      - local:/home/agent/.local
+      - vibe:/home/agent/.vibe
+      - ./workspaces/agentbox:/workspace
 
 volumes:
   vibe:
