@@ -1,4 +1,4 @@
-# Toadbox - Coding Agent Sandbox
+# Agent - Coding Agent Sandbox
 FROM debian:bookworm-slim
 
 # Environment variables
@@ -71,7 +71,7 @@ RUN ssh-keygen -A
 
 # Create user account 
 RUN useradd -m -s /bin/bash -G sudo agent && \
-    echo 'agent:changeme' | chpasswd && \
+    echo 'agent:smith' | chpasswd && \
     echo 'agent ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Set up entrypoint to handle PUID/PGID properly
@@ -293,7 +293,7 @@ if [ "${ENABLE_RDP:-false}" = "true" ]; then
     echo "xrdp started on port 3389"
     echo "Connect with any RDP client using:"
     echo "  Username: agent"
-    echo "  Password: changeme"
+    echo "  Password: smith"
 
     # Wait for xrdp to exit
     wait $XRDP_PID
@@ -310,10 +310,10 @@ RUN cat > /entrypoint.sh <<'EOF'
 #!/bin/bash
 set -euo pipefail
 
-echo "=== Toadbox Coding Agent Sandbox ==="
+echo "=== Agent Coding Agent Sandbox ==="
 echo "User: agent"
-echo "SSH Password: changeme"
-echo "RDP: Connect to port 3389 with agent/changeme"
+echo "SSH Password: smith"
+echo "RDP: Connect to port 3389 with agent/smith"
 echo ""
 
 # Start Docker daemon only if ENABLE_DOCKER is set to true

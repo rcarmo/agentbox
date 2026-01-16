@@ -1,37 +1,89 @@
-version: '3.8'
+x-agent: &agent
+  image: ghcr.io/rcarmo/agentbox:latest
+  environment:
+    - DISPLAY=:1
+    - TERM=xterm-256color
+    - PUID=${PUID:-1000}
+    - PGID=${PGID:-1000}
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        cpus: '${CPU_LIMITS:-2}'
+        memory: '${MEMORY_LIMITS:-4G}'
+  #privileged: true  # Required for Docker-in-Docker
+  networks:
+    - the_matrix
 
 services:
-  toadbox:
-    build: .
-    container_name: ${COMPOSE_PROJECT_NAME:-toadbox}
-    hostname: ${COMPOSE_PROJECT_NAME:-toadbox}
-    ports:
-      - "${SSH_PORT:-2222}:22"    # SSH
-      - "${RDP_PORT:-3390}:3389"  # RDP (xrdp)
-    volumes:
-      # Mount workspace directory
-      - ${WORKSPACE_PATH:-./workspace}:/workspace
-      # Persist Docker data per instance
-      - ${COMPOSE_PROJECT_NAME:-toadbox}_docker_data:/var/lib/docker
-    privileged: true  # Required for Docker-in-Docker
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: agentbox-syncthing
+    hostname: sandbox
     environment:
-      - DISPLAY=:1
-      - TERM=xterm-256color
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      - TZ=Europe/Lisbon
+      - HOME=/var/syncthing/config
+      - STGUIADDRESS=0.0.0.0:8384
+      - GOMAXPROCS=1
+    volumes:
+      - ./workspaces:/workspaces:Z
+      - ./config:/var/syncthing/config:Z
+    network_mode: host
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '${CPU_LIMITS:-2}'
-          memory: '${MEMORY_LIMITS:-4G}'
-    networks:
-      - toadbox_network
+    cpuset: "0"
+    cpu_shares: 2
+    healthcheck:
+      test: curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
+      interval: 1m
+      timeout: 10s
+      retries: 3
+
+  gotel:
+    <<: *agent
+    container_name: agent-gotel
+    hostname: gotel
+    ports:
+      - "2222:22"    # SSH
+      - "3390:3389"  # RDP (xrdp)
+      - "3000:3000"  # web service
+    volumes:
+      - home:/home/agent
+      - ./workspaces/gotel:/workspace
+
+  guerite:
+    <<: *agent
+    container_name: agent-guerite
+    hostname: guerite
+    ports:
+      - "2223:22"    # SSH
+      - "3391:3389"  # RDP (xrdp)
+      - "3001:3000"  # web service
+    volumes:
+      - home:/home/agent
+      - ./workspaces/guerite:/workspace
+
+  feed-summarizer:
+    <<: *agent
+    container_name: agent-feed-summarizer
+    hostname: feed-summarizer
+    ports:
+      - "2224:22"    # SSH
+      - "3392:3389"  # RDP (xrdp)
+      - "3003:3000"  # web service
+    volumes:
+      - home:/home/agent
+      - ./workspaces/feed-summarizer:/workspace
 
 volumes:
-  toadbox_docker_data:
-    name: ${COMPOSE_PROJECT_NAME:-toadbox}_docker_data
+  home:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./home
 
 networks:
-  toadbox_network:
+  the_matrix:
     driver: bridge

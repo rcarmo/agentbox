@@ -64,10 +64,10 @@ env.bak/
 docker-compose.override.yml
 **/.env
 **/.env.*
-**/.toadbox/**/docker-compose.override.yml
+**/.agentbox/**/docker-compose.override.yml
 
-# Toadbox generated files
-/.toadbox/
+# Agent generated files
+/.agentbox/
 
 # PyInstaller
 *.manifest

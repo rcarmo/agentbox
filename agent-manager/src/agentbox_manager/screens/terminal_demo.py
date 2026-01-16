@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from textual.screen import Screen
 from textual.widgets import Static
-from toadbox_manager.screens.terminal_widget import TerminalWidget
+
+from agentbox_manager.screens.terminal_widget import TerminalWidget
 
 
 class TerminalDemoScreen(Screen):

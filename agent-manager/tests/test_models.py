@@ -1,10 +1,10 @@
 import json
-import pytest
-from toadbox_manager.models import ToadboxInstance, InstanceStatus
+
+from agentbox_manager.models import AgentInstance, InstanceStatus
 
 
-def test_toadbox_instance_serialization_roundtrip():
-    inst = ToadboxInstance(
+def test_agentbox_instance_serialization_roundtrip():
+    inst = AgentInstance(
         name="test",
         workspace_folder="/tmp/workspace",
         cpu_cores=4,
@@ -22,15 +22,15 @@ def test_toadbox_instance_serialization_roundtrip():
     assert data["name"] == "test"
     assert data["status"] == "running"
 
-    inst2 = ToadboxInstance.from_dict(data)
+    inst2 = AgentInstance.from_dict(data)
     assert inst2.name == inst.name
     assert inst2.status == inst.status
 
 
 def test_service_name_and_hostname():
-    inst = ToadboxInstance(name="my-box", workspace_folder="/home/user/my-box")
+    inst = AgentInstance(name="my-box", workspace_folder="/home/user/my-box")
     assert inst.service_name == "my_box"
-    assert inst.hostname.startswith("toadbox-my-box")
+    assert inst.hostname.startswith("agentbox-my-box")
 
 
 def test_from_dict_legacy_vnc_field():
@@ -39,5 +39,5 @@ def test_from_dict_legacy_vnc_field():
         "workspace_folder": "/tmp/legacy",
         "vnc_port": 5901,
     }
-    inst = ToadboxInstance.from_dict(payload)
+    inst = AgentInstance.from_dict(payload)
     assert inst.rdp_port == 5901

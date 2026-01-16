@@ -1,7 +1,7 @@
 [project]
-name = "toadbox-manager"
+name = "agentbox-manager"
 version = "0.1.0"
-description = "A TUI-based manager for Toadbox container instances"
+description = "A TUI-based manager for Agent container instances"
 readme = "README.md"
 requires-python = ">=3.12.3"
 dependencies = [
@@ -32,7 +32,7 @@ select = ["E", "W", "F", "I", "C"]
 extend-ignore = ["E203"]
 
 [project.scripts]
-toadbox-manager = "main:main_entry"
+agentbox-manager = "main:main_entry"
 
 [build-system]
 requires = ["hatchling"]

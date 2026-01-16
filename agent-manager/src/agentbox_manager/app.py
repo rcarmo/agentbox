@@ -5,30 +5,29 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import docker
 import yaml
 from docker.errors import DockerException
-import time
-import pty
-from toadbox_manager import terminal
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Button, DataTable, Footer, Header, Label, Static
 
-from toadbox_manager.models import InstanceStatus, ToadboxInstance
-from toadbox_manager.screens.create_instance import CreateInstanceScreen
-from toadbox_manager.screens.folder_picker import FolderPickerScreen
-from toadbox_manager.screens.startup import StartupScreen
-from toadbox_manager.screens.help import HelpScreen
-from toadbox_manager.screens.terminal_demo import TerminalDemoScreen
+from agentbox_manager import terminal
+from agentbox_manager.models import AgentInstance, InstanceStatus
+from agentbox_manager.screens.create_instance import CreateInstanceScreen
+from agentbox_manager.screens.folder_picker import FolderPickerScreen
+from agentbox_manager.screens.help import HelpScreen
+from agentbox_manager.screens.startup import StartupScreen
+from agentbox_manager.screens.terminal_demo import TerminalDemoScreen
 
 
 class InstanceManagerApp(App):
-    """Textual TUI application for managing Toadbox instances."""
+    """Textual TUI application for managing Agent instances."""
 
     BINDINGS = [
         Binding("c", "create_instance", "Create"),
@@ -44,8 +43,7 @@ class InstanceManagerApp(App):
         Binding("q", "quit", "Quit"),
     ]
 
-    CSS = (
-        """
+    CSS = """
     #main-container {
         height: 100%;
         layout: grid;
@@ -84,16 +82,16 @@ class InstanceManagerApp(App):
     .status-stopped { color: yellow; }
     .status-error { color: red; text-style: bold; }
         """
-    )
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # Initialize core state used across the app and tests.
         super().__init__(*args, **kwargs)
-        # Instances registry: name -> ToadboxInstance
-        self.instances: Dict[str, ToadboxInstance] = {}
+        # Instances registry: name -> AgentInstance
+        self.instances: Dict[str, AgentInstance] = {}
         # Compose / config paths under the user's home by default
-        self.compose_dir: Path = Path.home() / ".toadbox-manager"
+        self.compose_dir: Path = Path.home() / ".agentbox-manager"
         self.compose_path: Path = self.compose_dir / "docker-compose.yml"
-        self.compose_project: str = "toadbox"
+        self.compose_project: str = "agentbox"
         self.config_file: Path = self.compose_dir / "config.json"
         # Try to initialize Docker SDK client but fall back gracefully
         try:
@@ -103,7 +101,10 @@ class InstanceManagerApp(App):
         except Exception:
             self.docker_client = None
         # Detect whether docker or docker-compose CLI is available
-        self.docker_cli_available = bool(shutil.which("docker") or shutil.which("docker-compose"))
+        self.docker_cli_available = bool(
+            shutil.which("docker") or shutil.which("docker-compose")
+        )
+
     def _init_docker_client(self) -> None:
         """Initialize or reinitialize the Docker SDK client and CLI availability flag.
 
@@ -118,22 +119,25 @@ class InstanceManagerApp(App):
             self.docker_client = None
 
         # Refresh CLI availability
-        self.docker_cli_available = bool(shutil.which("docker") or shutil.which("docker-compose"))
+        self.docker_cli_available = bool(
+            shutil.which("docker") or shutil.which("docker-compose")
+        )
 
         # Ensure compose/config attributes exist
         if not getattr(self, "compose_dir", None):
-            self.compose_dir = Path.home() / ".toadbox-manager"
+            self.compose_dir = Path.home() / ".agentbox-manager"
         if not getattr(self, "compose_path", None):
             self.compose_path = self.compose_dir / "docker-compose.yml"
         if not getattr(self, "compose_project", None):
-            self.compose_project = "toadbox"
+            self.compose_project = "agentbox"
         if not getattr(self, "config_file", None):
             self.config_file = self.compose_dir / "config.json"
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with Container(id="main-container"):
             with Vertical(id="instances-panel"):
-                yield Label("🐸 Toadbox Instances", classes="panel-title")
+                yield Label("🐸 Agent Instances", classes="panel-title")
                 yield DataTable(id="instances-table")
                 yield Horizontal(
                     Button("Create", id="create-btn", variant="primary"),
@@ -154,7 +158,9 @@ class InstanceManagerApp(App):
         table = self.query_one("#instances-table", DataTable)
         table.add_columns("Name", "Status", "CPU", "Memory", "SSH", "RDP", "Priority")
         # If the demo env var is set, open the embedded terminal demo
-        if os.environ.get("TOADBOX_TERMINAL_DEMO"):
+        if os.environ.get("AGENTBOX_TERMINAL_DEMO") or os.environ.get(
+            "TOADBOX_TERMINAL_DEMO"
+        ):
             self.push_screen(TerminalDemoScreen())
             return
         if self.docker_client:
@@ -200,14 +206,16 @@ class InstanceManagerApp(App):
             with open(self.config_file, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
             self.instances = {
-                name: ToadboxInstance.from_dict(payload)
+                name: AgentInstance.from_dict(payload)
                 for name, payload in data.get("instances", {}).items()
             }
         except (OSError, json.JSONDecodeError):
             self.instances = {}
 
     def save_config(self) -> None:
-        data = {"instances": {name: inst.to_dict() for name, inst in self.instances.items()}}
+        data = {
+            "instances": {name: inst.to_dict() for name, inst in self.instances.items()}
+        }
         with open(self.config_file, "w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=2)
         # Keep the unified compose file in sync with saved instances
@@ -229,10 +237,14 @@ class InstanceManagerApp(App):
                 key=inst.name,
             )
         status_bar = self.query_one("#status-bar", Static)
-        running = sum(1 for inst in self.instances.values() if inst.status == InstanceStatus.RUNNING)
+        running = sum(
+            1
+            for inst in self.instances.values()
+            if inst.status == InstanceStatus.RUNNING
+        )
         status_bar.update(f"Instances: {len(self.instances)} | Running: {running}")
 
-    def get_selected_instance(self) -> Optional[ToadboxInstance]:
+    def get_selected_instance(self) -> Optional[AgentInstance]:
         table = self.query_one("#instances-table", DataTable)
         if table.cursor_row is None:
             return None
@@ -256,7 +268,7 @@ class InstanceManagerApp(App):
             return
         self.push_screen(CreateInstanceScreen(selected))
 
-    def create_instance(self, instance: ToadboxInstance) -> None:
+    def create_instance(self, instance: AgentInstance) -> None:
         for existing_name, existing in self.instances.items():
             conflicts = []
             if existing.ssh_port == instance.ssh_port:
@@ -274,7 +286,9 @@ class InstanceManagerApp(App):
         self.save_config()
         self.refresh_table()
 
-    def suggest_ports(self, ssh_start: int = 2222, rdp_start: int = 3390) -> tuple[int, int]:
+    def suggest_ports(
+        self, ssh_start: int = 2222, rdp_start: int = 3390
+    ) -> tuple[int, int]:
         """Return the next available (ssh_port, rdp_port) not used by existing instances."""
         used_ssh = {inst.ssh_port for inst in self.instances.values()}
         used_rdp = {inst.rdp_port for inst in self.instances.values()}
@@ -301,7 +315,7 @@ class InstanceManagerApp(App):
             return
         asyncio.create_task(self._start_async(inst))
 
-    async def _start_async(self, instance: ToadboxInstance) -> None:
+    async def _start_async(self, instance: AgentInstance) -> None:
         instance.status = InstanceStatus.STARTING
         self.refresh_table()
         ok, detail = self._run_compose(instance, "up")
@@ -320,7 +334,7 @@ class InstanceManagerApp(App):
             return
         asyncio.create_task(self._stop_async(inst))
 
-    async def _stop_async(self, instance: ToadboxInstance) -> None:
+    async def _stop_async(self, instance: AgentInstance) -> None:
         instance.status = InstanceStatus.STOPPING
         self.refresh_table()
         ok, detail = self._run_compose(instance, "stop")
@@ -338,7 +352,7 @@ class InstanceManagerApp(App):
             return
         asyncio.create_task(self._delete_async(inst))
 
-    async def _delete_async(self, instance: ToadboxInstance) -> None:
+    async def _delete_async(self, instance: AgentInstance) -> None:
         if instance.status == InstanceStatus.RUNNING:
             await self._stop_async(instance)
         ok, detail = self._run_compose(instance, "rm", include_volumes=True)
@@ -356,7 +370,7 @@ class InstanceManagerApp(App):
         for inst in self.instances.values():
             service_name = inst.service_name
             services[service_name] = {
-                "image": "toadbox",
+                "image": "agentbox",
                 "container_name": inst.hostname,
                 "hostname": inst.hostname,
                 "restart": "unless-stopped",
@@ -375,7 +389,7 @@ class InstanceManagerApp(App):
                     f"{service_name}_docker_data:/var/lib/docker",
                     f"{service_name}_home:/home/agent",
                 ],
-                "networks": ["toadbox_network"],
+                "networks": ["agentbox_network"],
                 "privileged": True,
                 "deploy": {
                     "resources": {
@@ -387,14 +401,16 @@ class InstanceManagerApp(App):
                 },
             }
 
-            volumes[f"{service_name}_docker_data"] = {"name": f"{service_name}_docker_data"}
+            volumes[f"{service_name}_docker_data"] = {
+                "name": f"{service_name}_docker_data"
+            }
             volumes[f"{service_name}_home"] = {"name": f"{service_name}_home"}
 
         compose_dict: Dict[str, Any] = {
             "version": "3.8",
             "services": services,
             "volumes": volumes,
-            "networks": {"toadbox_network": {"driver": "bridge"}},
+            "networks": {"agentbox_network": {"driver": "bridge"}},
         }
         return compose_dict
 
@@ -402,21 +418,43 @@ class InstanceManagerApp(App):
         """Write a single docker-compose file containing all instances."""
         self.compose_dir.mkdir(exist_ok=True)
         compose_dict = self._build_compose_spec()
-        self.compose_path.write_text(yaml.dump(compose_dict, default_flow_style=False), encoding="utf-8")
+        self.compose_path.write_text(
+            yaml.dump(compose_dict, default_flow_style=False), encoding="utf-8"
+        )
         return self.compose_path
 
-    def _run_compose(self, instance: ToadboxInstance, action: str, include_volumes: bool = False) -> tuple[bool, str]:
+    def _run_compose(
+        self, instance: AgentInstance, action: str, include_volumes: bool = False
+    ) -> tuple[bool, str]:
         compose_path = self._write_compose()
         docker_bin = shutil.which("docker")
         docker_compose_bin = shutil.which("docker-compose")
         base_cmd: list[str] | None = None
 
         if docker_bin:
-            probe = subprocess.run([docker_bin, "compose", "version"], capture_output=True, text=True, check=False)
+            probe = subprocess.run(
+                [docker_bin, "compose", "version"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             if probe.returncode == 0:
-                base_cmd = [docker_bin, "compose", "-f", str(compose_path), "-p", self.compose_project]
+                base_cmd = [
+                    docker_bin,
+                    "compose",
+                    "-f",
+                    str(compose_path),
+                    "-p",
+                    self.compose_project,
+                ]
         if base_cmd is None and docker_compose_bin:
-            base_cmd = [docker_compose_bin, "-f", str(compose_path), "-p", self.compose_project]
+            base_cmd = [
+                docker_compose_bin,
+                "-f",
+                str(compose_path),
+                "-p",
+                self.compose_project,
+            ]
         if base_cmd is None:
             return False, "docker compose not found"
 
@@ -443,22 +481,46 @@ class InstanceManagerApp(App):
         output = (result.stderr or "").strip() or (result.stdout or "").strip()
         return result.returncode == 0, output
 
-    def _get_compose_status(self, instance: ToadboxInstance) -> InstanceStatus:
+    def _get_compose_status(self, instance: AgentInstance) -> InstanceStatus:
         if not self.compose_path.exists():
             return InstanceStatus.STOPPED
         docker_bin = shutil.which("docker")
         docker_compose_bin = shutil.which("docker-compose")
         base_cmd: list[str] | None = None
         if docker_bin:
-            probe = subprocess.run([docker_bin, "compose", "version"], capture_output=True, text=True, check=False)
+            probe = subprocess.run(
+                [docker_bin, "compose", "version"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             if probe.returncode == 0:
-                base_cmd = [docker_bin, "compose", "-f", str(self.compose_path), "-p", self.compose_project]
+                base_cmd = [
+                    docker_bin,
+                    "compose",
+                    "-f",
+                    str(self.compose_path),
+                    "-p",
+                    self.compose_project,
+                ]
         if base_cmd is None and docker_compose_bin:
-            base_cmd = [docker_compose_bin, "-f", str(self.compose_path), "-p", self.compose_project]
+            base_cmd = [
+                docker_compose_bin,
+                "-f",
+                str(self.compose_path),
+                "-p",
+                self.compose_project,
+            ]
         if base_cmd is None:
             return InstanceStatus.ERROR
 
-        cmd = base_cmd + ["ps", "--services", "--filter", "status=running", instance.service_name]
+        cmd = base_cmd + [
+            "ps",
+            "--services",
+            "--filter",
+            "status=running",
+            instance.service_name,
+        ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if result.returncode == 0 and instance.service_name in result.stdout:
             return InstanceStatus.RUNNING
@@ -471,7 +533,7 @@ class InstanceManagerApp(App):
             return
         self._connect_ssh(inst)
 
-    def _connect_ssh(self, instance: ToadboxInstance) -> None:
+    def _connect_ssh(self, instance: AgentInstance) -> None:
         cmd = [
             "ssh",
             "-o",
@@ -501,15 +563,15 @@ class InstanceManagerApp(App):
             return
         self._attach_to_container(inst)
 
-    def _attach_to_container(self, instance: ToadboxInstance) -> None:
+    def _attach_to_container(self, instance: AgentInstance) -> None:
         # Attempt to attach to the running container and open a tmux session
         # Use docker exec to run tmux inside the container
         # If SDK client available, prefer it
-        _run_restore = terminal.restore_terminal
-
         if self.docker_client:
             try:
-                containers = self.docker_client.containers.list(filters={"name": instance.service_name})
+                containers = self.docker_client.containers.list(
+                    filters={"name": instance.hostname}
+                )
             except Exception:
                 containers = []
 
@@ -520,7 +582,17 @@ class InstanceManagerApp(App):
             container = containers[0]
             target = container.name if hasattr(container, "name") else container.id
 
-            cmd = ["docker", "exec", "-it", "--user", "agent", target, "tmux", "new", "-As0"]
+            cmd = [
+                "docker",
+                "exec",
+                "-it",
+                "--user",
+                "agent",
+                target,
+                "tmux",
+                "new",
+                "-As0",
+            ]
             # Inform user we're attempting attach
             try:
                 status_bar = self.query_one("#status-bar", Static)
@@ -551,7 +623,14 @@ class InstanceManagerApp(App):
             try:
                 # Find a container name matching the service
                 probe = subprocess.run(
-                    ["docker", "ps", "--filter", f"name={instance.service_name}", "--format", "{{.Names}}"],
+                    [
+                        "docker",
+                        "ps",
+                        "--filter",
+                        f"name={instance.hostname}",
+                        "--format",
+                        "{{.Names}}",
+                    ],
                     capture_output=True,
                     text=True,
                     check=False,
@@ -561,7 +640,17 @@ class InstanceManagerApp(App):
                     self.show_error("Container not found")
                     return
                 target = names[0]
-                cmd = ["docker", "exec", "-it", "--user", "agent", target, "tmux", "new", "-As0"]
+                cmd = [
+                    "docker",
+                    "exec",
+                    "-it",
+                    "--user",
+                    "agent",
+                    target,
+                    "tmux",
+                    "new",
+                    "-As0",
+                ]
                 self.exit()
                 try:
                     status_bar = self.query_one("#status-bar", Static)
@@ -583,7 +672,7 @@ class InstanceManagerApp(App):
         # If we reach here, neither SDK nor CLI are available
         self.show_error("Docker is not available. Start Docker and retry.")
 
-    def _connect_rdp(self, instance: ToadboxInstance) -> None:
+    def _connect_rdp(self, instance: AgentInstance) -> None:
         rdp_commands = [
             ["xfreerdp", f"/v:localhost:{instance.rdp_port}", "/u:agent", "/p:"],
             ["open", f"rdp://localhost:{instance.rdp_port}"],
@@ -616,14 +705,17 @@ class InstanceManagerApp(App):
     def quick_connect(self, instance_name: str) -> None:
         if not self.docker_client:
             return
-        containers = self.docker_client.containers.list(filters={"name": f"toadbox_{instance_name}"})
+        probe_instance = AgentInstance(name=instance_name, workspace_folder="")
+        containers = self.docker_client.containers.list(
+            filters={"name": probe_instance.hostname}
+        )
         if not containers:
             return
         container = containers[0]
         ports = container.ports or {}
         ssh_host_port = ports.get("22/tcp", [{}])[0].get("HostPort", "2222")
         rdp_host_port = ports.get("3389/tcp", [{}])[0].get("HostPort", "3390")
-        inst = ToadboxInstance(
+        inst = AgentInstance(
             name=instance_name,
             workspace_folder="",
             ssh_port=int(ssh_host_port),

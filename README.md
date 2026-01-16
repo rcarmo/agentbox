@@ -1,12 +1,12 @@
-# Toadbox - Coding Agent Sandbox
+# Agentbox - Coding Agent Sandbox
 
-![Toadbox Logo](docs/icon-256.png)
+![Logo](docs/icon-256.png)
 
 There's no perfect way to sandbox agents (yet), but at least we can try limiting the damage using containers.
 
-Toadbox is a simple Docker-based coding agent sandbox featuring [Batrachian Toad](https://github.com/batrachianai/toad) as a general-purpose coding assistant TUI, which will help you boostrap pretty much _any_ current AI agent. For convenience, OpenCode and Mistral Vibe are also pre-installed
+Agentbox is a simple Docker-based coding agent sandbox, originally inspired by running [Batrachian Toad](https://github.com/batrachianai/toad) as a general-purpose coding assistant TUI and now generalized to more tools.
 
-The container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, `ssh`/`mosh` server, and a minimal RDP desktop environment.
+Whatever agent you prefer, Agentbox aims to provide a reliable and isolated environment which will help you boostrap pretty much _any_ development environment.
 
 ## Motivation
 
@@ -14,10 +14,14 @@ I found myself wanting to quickly spin up isolated coding environments for AI ag
 
 ## Features
 
+The container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, `ssh`/`mosh` server, and a minimal RDP desktop environment to run these:
+
 - **[Batrachian Toad](https://github.com/batrachianai/toad)**: A unified interface for AI in your terminal
+- **[Mistral Vibe](https://github.com/mistralai/mistral-vibe)**: A nice coding assistant pre-installed
+- **[OpenCode](https://github.com/anomalyco/opencode/)**: Another coding assistant pre-installed
 - **Development Environment**: Debian Bookworm with essential development tools
-- **Visual Studio Code**: for ARM/Intel
-- **Package Managers**: Homebrew and APT package management 
+- **Visual Studio Code**: for ARM or Intel
+- **Package Managers**: Homebrew and APT package management, plus `uv`, `node`, `bun`, `go`, etc.
 - **Docker-in-Docker**: Docker support for containerized workflows (requires you to run the container in privileged mode, so be careful)
 - **Service Control**: Fine-grained control over which services start using environment variables (`ENABLE_DOCKER`, `ENABLE_SSH`, `ENABLE_RDP`)
 - **Remote Access**: SSH (port 22) and RDP (port 3389) connectivity (disabled by default)
@@ -32,7 +36,7 @@ I found myself wanting to quickly spin up isolated coding environments for AI ag
 
 ## Service Configuration
 
-Toadbox now supports environment variables to control which services start at container launch:
+Agentbox uses environment variables to control which services start at container launch:
 
 - `ENABLE_DOCKER=true` - Start Docker daemon (for Docker-in-Docker support)
 - `ENABLE_SSH=true` - Start SSH server (port 22)
@@ -44,25 +48,25 @@ Toadbox now supports environment variables to control which services start at co
 
 ```bash
 # Default - all services disabled
-docker run -d toadbox
+docker run -d agentbox
 
 # Enable only Docker daemon
-docker run -d -e ENABLE_DOCKER=true toadbox
+docker run -d -e ENABLE_DOCKER=true agentbox
 
 # Enable Docker and SSH for development
-docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -p 22:22 toadbox
+docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -p 22:22 agentbox
 
 # Full desktop experience with all services
-docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -e ENABLE_RDP=true -p 22:22 -p 3389:3389 toadbox
+docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -e ENABLE_RDP=true -p 22:22 -p 3389:3389 agentbox
 ```
 
 ## Quick Start
 
-### Using Toadbox Manager (still WIP)
+### Using Agentbox Manager (still WIP)
 
 ![Instance Manager](docs/screenshot.svg)
 
-The Toadbox Manager is a first stab at a TUI for easily managing multiple toadbox instances with automatic naming, folder picker, and proper permission handling.
+The Agentbox Manager is a first stab at a TUI for easily managing multiple agentbox instances with automatic naming, folder picker, and proper permission handling.
 
 1. Clone or download this repository
 2. Run the quick start script:
@@ -95,9 +99,9 @@ If you prefer to use docker-compose directly:
 2. Create a `docker-compose.override.yml` file to enable services:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
-  toadbox:
+  agentbox:
     environment:
       - ENABLE_DOCKER=true
       - ENABLE_SSH=true
@@ -119,24 +123,24 @@ docker-compose up -d
 
 - RDP Client: `localhost:3389`
 - Username: `agent`
-- Password: `changeme`
+- Password: `smith`
 
 **Via SSH (Terminal):**
 
 ```bash
 ssh agent@localhost -p 22
-# Password: changeme
+# Password: smith
 ```
 
 ### Using Docker Directly
 
 ```bash
 # Build the image
-docker build -t toadbox .
+docker build -t agentbox .
 
 # Run the container with selected services
 docker run -d \
-  --name toadbox \
+  --name agentbox \
   --privileged \
   -e ENABLE_DOCKER=true \
   -e ENABLE_SSH=true \
@@ -144,7 +148,7 @@ docker run -d \
   -p 22:22 \
   -p 3389:3389 \
   -v $(pwd):/workspace \
-  toadbox
+  agentbox
 ```
 
 ### Using Batrachian Toad

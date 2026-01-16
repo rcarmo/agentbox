@@ -11,7 +11,7 @@ class HelpScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         help_text = (
-            "🐸 Toadbox Manager\n\n"
+            "🐸 Agent Manager\n\n"
             "c - Create new instance\n"
             "s - Start selected instance\n"
             "t - Stop selected instance\n"

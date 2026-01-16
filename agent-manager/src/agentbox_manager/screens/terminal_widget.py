@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import os
 import subprocess
-import fcntl
-import termios
-import pyte
 from typing import Optional
 
-from textual.widget import Widget
+import pyte
 from textual.message import Message
 from textual.reactive import reactive
+from textual.widget import Widget
 
 
 class TerminalClosed(Message):
@@ -31,7 +30,9 @@ class TerminalWidget(Widget):
     rows: int = 24
     screen = reactive("")
 
-    def __init__(self, cmd: list[str] = ["/bin/bash"], *, cols: int = 80, rows: int = 24) -> None:
+    def __init__(
+        self, cmd: list[str] = ["/bin/bash"], *, cols: int = 80, rows: int = 24
+    ) -> None:
         super().__init__()
         self.cmd = cmd
         self.cols = cols
@@ -45,7 +46,9 @@ class TerminalWidget(Widget):
         # set non-blocking
         fl = fcntl.fcntl(self.master_fd, fcntl.F_GETFL)
         fcntl.fcntl(self.master_fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-        self.proc = subprocess.Popen(self.cmd, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd, close_fds=True)
+        self.proc = subprocess.Popen(
+            self.cmd, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd, close_fds=True
+        )
         self.process_pid = self.proc.pid
         os.close(slave_fd)
         asyncio.create_task(self._read_loop())

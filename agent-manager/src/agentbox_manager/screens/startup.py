@@ -11,8 +11,8 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Static
 
-from toadbox_manager.screens.create_instance import CreateInstanceScreen
-from toadbox_manager.screens.folder_picker import FolderPickerScreen
+from agentbox_manager.screens.create_instance import CreateInstanceScreen
+from agentbox_manager.screens.folder_picker import FolderPickerScreen
 
 
 class StartupScreen(ModalScreen[Optional[tuple[str, str]]]):
@@ -26,8 +26,10 @@ class StartupScreen(ModalScreen[Optional[tuple[str, str]]]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="startup-container"):
-            yield Static("🐸 Toadbox Manager", id="title")
-            yield Static("Select a running instance or create a new one.", id="subtitle")
+            yield Static("🐸 Agent Manager", id="title")
+            yield Static(
+                "Select a running instance or create a new one.", id="subtitle"
+            )
             yield DataTable(id="running-instances-table")
             with Horizontal(id="button-container"):
                 yield Button("Create New Instance", id="create-btn", variant="primary")
@@ -45,10 +47,12 @@ class StartupScreen(ModalScreen[Optional[tuple[str, str]]]):
         running_instances = []
         try:
             docker_client = docker.from_env()
-            containers = docker_client.containers.list(all=True, filters={"name": "toadbox"})
+            containers = docker_client.containers.list(
+                all=True, filters={"name": "agentbox"}
+            )
             for container in containers:
                 container_name = container.name or "unknown"
-                name = container_name.replace("toadbox_", "").replace("toadbox-", "")
+                name = container_name.replace("agentbox_", "").replace("agentbox-", "")
                 status = "Running" if container.status == "running" else "Stopped"
                 ports = container.ports or {}
                 ssh_port = ports.get("22/tcp", [{}])[0].get("HostPort", "N/A")
@@ -78,7 +82,9 @@ class StartupScreen(ModalScreen[Optional[tuple[str, str]]]):
 
     def _handle_folder_for_create(self, selected_path: Optional[Path]) -> None:
         if selected_path:
-            self.app.push_screen(CreateInstanceScreen(selected_path), self._handle_create_result)
+            self.app.push_screen(
+                CreateInstanceScreen(selected_path), self._handle_create_result
+            )
         else:
             self.dismiss(None)
 

@@ -10,10 +10,10 @@ from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select
 
-from toadbox_manager.models import ToadboxInstance
+from agentbox_manager.models import AgentInstance
 
 
-class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
+class CreateInstanceScreen(ModalScreen[Optional[AgentInstance]]):
     """Modal screen for creating new instances."""
 
     DEFAULT_CSS = """
@@ -100,26 +100,36 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
 
     def compose(self) -> ComposeResult:
         with Container(id="create-dialog"):
-            yield Label("Create New Toadbox Instance", classes="dialog-title")
+            yield Label("Create New Agent Instance", classes="dialog-title")
 
             with ScrollableContainer(id="create-form"):
                 yield Label("Instance Name / Workspace:")
                 with Horizontal(id="name-browse-row"):
-                    name_input = Input(placeholder="my-toadbox", id="name-input")
+                    name_input = Input(placeholder="my-agentbox", id="name-input")
                     if self.workspace_folder:
                         name_input.value = self.workspace_folder.name
                     yield name_input
                     yield Button("Browse", variant="default", id="browse-button")
 
                 yield Label("Workspace Folder:")
-                yield Label(str(self.workspace_folder or "No folder selected"), id="workspace-label")
+                yield Label(
+                    str(self.workspace_folder or "No folder selected"),
+                    id="workspace-label",
+                )
 
                 yield Label("CPU Cores:")
-                yield Select([(str(i), str(i)) for i in range(1, 9)], value="2", id="cpu-select")
+                yield Select(
+                    [(str(i), str(i)) for i in range(1, 9)], value="2", id="cpu-select"
+                )
 
                 yield Label("Memory (MB):")
                 yield Select(
-                    [("2048", "2048"), ("4096", "4096"), ("8192", "8192"), ("16384", "16384")],
+                    [
+                        ("2048", "2048"),
+                        ("4096", "4096"),
+                        ("8192", "8192"),
+                        ("16384", "16384"),
+                    ],
                     value="4096",
                     id="memory-select",
                 )
@@ -146,10 +156,14 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
                     default_pgid = "1000"
 
                 yield Label("User ID (PUID):")
-                yield Input(placeholder=default_puid, value=default_puid, id="puid-input")
+                yield Input(
+                    placeholder=default_puid, value=default_puid, id="puid-input"
+                )
 
                 yield Label("Group ID (PGID):")
-                yield Input(placeholder=default_pgid, value=default_pgid, id="pgid-input")
+                yield Input(
+                    placeholder=default_pgid, value=default_pgid, id="pgid-input"
+                )
 
             with Horizontal(classes="button-row"):
                 yield Button("Create", variant="primary", id="create-button")
@@ -175,14 +189,14 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
         elif event.button.id == "cancel-button":
             self.app.pop_screen()
         elif event.button.id == "browse-button":
-            from toadbox_manager.screens.folder_picker import FolderPickerScreen
+            from agentbox_manager.screens.folder_picker import FolderPickerScreen
 
             self.app.push_screen(FolderPickerScreen(), self.handle_folder_selection)
 
     def _create_instance(self) -> None:
         name = self.query_one("#name-input", Input).value.strip()
         if not name:
-            name = self.workspace_folder.name if self.workspace_folder else "toadbox"
+            name = self.workspace_folder.name if self.workspace_folder else "agentbox"
 
         cpu_select = self.query_one("#cpu-select", Select)
         try:
@@ -205,7 +219,7 @@ class CreateInstanceScreen(ModalScreen[Optional[ToadboxInstance]]):
         puid = int(self.query_one("#puid-input", Input).value or "1000")
         pgid = int(self.query_one("#pgid-input", Input).value or "1000")
 
-        instance = ToadboxInstance(
+        instance = AgentInstance(
             name=name,
             workspace_folder=str(self.workspace_folder or Path.cwd()),
             cpu_cores=cpu_cores,

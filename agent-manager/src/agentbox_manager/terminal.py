@@ -3,12 +3,13 @@
 Provides a single entrypoint `attach_command` which tries `subprocess.run`, then
 `pty.spawn`, then an `execvp` handoff, restoring terminal state before/after.
 """
+
 from __future__ import annotations
 
 import os
+import pty
 import subprocess
 import time
-import pty
 from typing import Sequence
 
 
@@ -45,7 +46,7 @@ def attach_command(cmd: Sequence[str], delay: float = 1.5) -> bool:
 
     # diagnostic log for troubleshooting attach issues
     try:
-        with open("/tmp/toadbox-attach.log", "a", encoding="utf-8") as fh:
+        with open("/tmp/agentbox-attach.log", "a", encoding="utf-8") as fh:
             fh.write(f"--- attach attempt: {time.asctime()}\n")
             fh.write(f"cmd: {cmd}\n")
     except Exception:
@@ -56,7 +57,7 @@ def attach_command(cmd: Sequence[str], delay: float = 1.5) -> bool:
         result = subprocess.run(list(cmd), check=False)
         if result and getattr(result, "returncode", 0) == 0:
             try:
-                with open("/tmp/toadbox-attach.log", "a", encoding="utf-8") as fh:
+                with open("/tmp/agentbox-attach.log", "a", encoding="utf-8") as fh:
                     fh.write(f"subprocess.run returned {result.returncode}\n")
             except Exception:
                 pass
@@ -68,7 +69,7 @@ def attach_command(cmd: Sequence[str], delay: float = 1.5) -> bool:
     try:
         pty.spawn(list(cmd))
         try:
-            with open("/tmp/toadbox-attach.log", "a", encoding="utf-8") as fh:
+            with open("/tmp/agentbox-attach.log", "a", encoding="utf-8") as fh:
                 fh.write("pty.spawn returned\n")
         except Exception:
             pass
@@ -79,7 +80,7 @@ def attach_command(cmd: Sequence[str], delay: float = 1.5) -> bool:
     # 3) Try execvp handoff — this will not return on success
     try:
         try:
-            with open("/tmp/toadbox-attach.log", "a", encoding="utf-8") as fh:
+            with open("/tmp/agentbox-attach.log", "a", encoding="utf-8") as fh:
                 fh.write("attempting execvp\n")
         except Exception:
             pass
@@ -91,7 +92,7 @@ def attach_command(cmd: Sequence[str], delay: float = 1.5) -> bool:
     # final restore attempt
     restore_terminal()
     try:
-        with open("/tmp/toadbox-attach.log", "a", encoding="utf-8") as fh:
+        with open("/tmp/agentbox-attach.log", "a", encoding="utf-8") as fh:
             fh.write("attach failed\n")
     except Exception:
         pass

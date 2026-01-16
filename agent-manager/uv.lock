@@ -378,7 +378,7 @@ wheels = [
 ]
 
 [[package]]
-name = "toadbox-manager"
+name = "agentbox-manager"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

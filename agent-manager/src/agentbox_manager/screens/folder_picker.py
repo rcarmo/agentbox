@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.screen import ModalScreen
@@ -34,10 +33,14 @@ class FolderPickerScreen(ModalScreen[Optional[Path]]):
                 yield Button("Select", variant="primary", id="select-button")
                 yield Button("Cancel", variant="default", id="cancel-button")
 
-    def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
+    def on_directory_tree_directory_selected(
+        self, event: DirectoryTree.DirectorySelected
+    ) -> None:
         self.selected_path = Path(event.path)
 
-    def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
+    def on_directory_tree_file_selected(
+        self, event: DirectoryTree.FileSelected
+    ) -> None:
         self.selected_path = Path(event.path).parent
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict
+import re
+from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Dict, Optional
-import re
 
 
 class InstanceStatus(Enum):
@@ -17,7 +17,7 @@ class InstanceStatus(Enum):
 
 
 @dataclass
-class ToadboxInstance:
+class AgentInstance:
     name: str
     workspace_folder: str
     cpu_cores: int = 2
@@ -46,7 +46,7 @@ class ToadboxInstance:
         # Use the instance name for hostname if available, otherwise workspace folder
         base = self.name or Path(self.workspace_folder).name
         sanitized = re.sub(r"[^0-9a-zA-Z]+", "-", base).strip("-").lower()
-        return f"toadbox-{sanitized}"
+        return f"agentbox-{sanitized}"
 
     def to_dict(self) -> Dict:
         data = asdict(self)
@@ -54,7 +54,7 @@ class ToadboxInstance:
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "ToadboxInstance":
+    def from_dict(cls, data: Dict) -> "AgentInstance":
         # Copy to avoid mutating caller data
         payload = dict(data)
 
