@@ -29,7 +29,7 @@ services:
       <<: *env
       HOME: /var/syncthing/config
       STGUIADDRESS: 0.0.0.0:8384
-      GOMAXPROCS: "1"
+      GOMAXPROCS: "2"
     volumes:
       - ./workspaces:/workspaces:Z
       - ./config:/var/syncthing/config:Z
