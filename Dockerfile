@@ -62,9 +62,17 @@ RUN cat > /entrypoint-user.sh <<'ENTRYPOINT_USER'
 #!/bin/bash
 set -e
 
+MARKER_FILE="/home/agent/.container_initialized"
+
 initialize_home() {
     local SKEL_DIR="/etc/skel.agent"
     local HOME_DIR="/home/agent"
+    
+    # Skip if already initialized (marker exists and .bashrc exists)
+    if [ -f "$MARKER_FILE" ] && [ -f "$HOME_DIR/.bashrc" ]; then
+        echo "Home directory already initialized (fast path)"
+        return 0
+    fi
     
     echo "Checking home directory initialization..."
     
@@ -127,15 +135,40 @@ setup_user_ids() {
 }
 
 fix_ownership() {
+    # Skip entirely if marker exists (subsequent starts)
+    if [ -f "$MARKER_FILE" ]; then
+        echo "Ownership already configured (fast path)"
+        return 0
+    fi
+    
     echo "Fixing ownership of user directories..."
-    chown -R agent:agent /home/agent || true
-    chown -R agent:agent /home/linuxbrew 2>/dev/null || true
-    [ -d /workspace ] && chown -R agent:agent /workspace || true
+    
+    # Only chown /home/agent if ownership is wrong (check one file)
+    if [ -d /home/agent ] && [ "$(stat -c %U /home/agent 2>/dev/null)" != "agent" ]; then
+        echo "Fixing /home/agent ownership..."
+        chown -R agent:agent /home/agent
+    fi
+    
+    # /home/linuxbrew is set correctly at build time - never chown at runtime
+    # (it's not mounted and contains thousands of files)
+    
+    # Only chown /workspace if FIX_WORKSPACE_OWNERSHIP=true (opt-in)
+    if [ "${FIX_WORKSPACE_OWNERSHIP:-false}" = "true" ] && [ -d /workspace ]; then
+        if [ "$(stat -c %U /workspace 2>/dev/null)" != "agent" ]; then
+            echo "Fixing /workspace ownership (FIX_WORKSPACE_OWNERSHIP=true)..."
+            chown -R agent:agent /workspace
+        fi
+    fi
+}
+
+mark_initialized() {
+    touch "$MARKER_FILE"
 }
 
 initialize_home
 setup_user_ids
 fix_ownership
+mark_initialized
 exec "$@"
 ENTRYPOINT_USER
 RUN chmod +x /entrypoint-user.sh
@@ -146,9 +179,8 @@ WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
     echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
-    brew update && brew install node golang && \
+    brew update && brew install node golang copilot-cli && \
     npm i -g opencode-ai && \
-    npm i -g @github/copilot && \
     curl -fsSL https://bun.sh/install | bash && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
