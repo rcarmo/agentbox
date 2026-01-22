@@ -64,12 +64,28 @@ set -e
 
 MARKER_FILE="/home/agent/.container_initialized"
 
+# Check if UID/GID changed since last initialization
+uid_gid_changed() {
+    if [ ! -f "$MARKER_FILE" ]; then
+        return 0  # No marker = needs init
+    fi
+    
+    local current_uid=$(id -u agent 2>/dev/null || echo "")
+    local current_gid=$(id -g agent 2>/dev/null || echo "")
+    local stored=$(cat "$MARKER_FILE" 2>/dev/null || echo "")
+    
+    if [ "$stored" != "${current_uid}:${current_gid}" ]; then
+        return 0  # Changed
+    fi
+    return 1  # Same
+}
+
 initialize_home() {
     local SKEL_DIR="/etc/skel.agent"
     local HOME_DIR="/home/agent"
     
-    # Skip if already initialized (marker exists and .bashrc exists)
-    if [ -f "$MARKER_FILE" ] && [ -f "$HOME_DIR/.bashrc" ]; then
+    # Skip if already initialized (marker exists and .bashrc exists) and UID/GID unchanged
+    if [ -f "$MARKER_FILE" ] && [ -f "$HOME_DIR/.bashrc" ] && ! uid_gid_changed; then
         echo "Home directory already initialized (fast path)"
         return 0
     fi
@@ -135,8 +151,8 @@ setup_user_ids() {
 }
 
 fix_ownership() {
-    # Skip entirely if marker exists (subsequent starts)
-    if [ -f "$MARKER_FILE" ]; then
+    # Skip entirely if marker exists and UID/GID unchanged
+    if [ -f "$MARKER_FILE" ] && ! uid_gid_changed; then
         echo "Ownership already configured (fast path)"
         return 0
     fi
@@ -162,7 +178,8 @@ fix_ownership() {
 }
 
 mark_initialized() {
-    touch "$MARKER_FILE"
+    # Store current UID:GID so we can detect changes
+    echo "$(id -u agent):$(id -g agent)" > "$MARKER_FILE"
 }
 
 initialize_home
