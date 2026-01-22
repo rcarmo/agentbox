@@ -54,9 +54,11 @@ services:
       - "3000:3000"  # web service
       - "3020:3020"  # web service
     volumes:
-      - local:/home/agent/.local
-      - vibe:/home/agent/.vibe
-      - ./workspaces/gotel:/workspace
+      - local:/home/agent/.local:Z
+      - gitconfig:/home/agent/.gitconfig:ro
+      - copilot:/home/agent/.copilot:Z
+      - vibe:/home/agent/.vibe:Z
+      - ./workspaces/gotel:/workspace:Z
 
   guerite:
     <<: *agent
@@ -66,18 +68,22 @@ services:
       <<: *env
       ENABLE_DOCKER: "true"
     volumes:
-      - local:/home/agent/.local
-      - vibe:/home/agent/.vibe
-      - ./workspaces/guerite:/workspace
+      - local:/home/agent/.local:Z
+      - gitconfig:/home/agent/.gitconfig:ro
+      - copilot:/home/agent/.copilot:Z
+      - vibe:/home/agent/.vibe:Z
+      - ./workspaces/guerite:/workspace:Z
 
   feed-summarizer:
     <<: *agent
     container_name: agent-feed-summarizer
     hostname: feed-summarizer
     volumes:
-      - local:/home/agent/.local
-      - vibe:/home/agent/.vibe
-      - ./workspaces/feed-summarizer:/workspace
+      - local:/home/agent/.local:Z
+      - gitconfig:/home/agent/.gitconfig:ro
+      - copilot:/home/agent/.copilot:Z
+      - vibe:/home/agent/.vibe:Z
+      - ./workspaces/feed-summarizer:/workspace:Z
 
   go-html5:
     <<: *agent
@@ -86,9 +92,11 @@ services:
     ports:
       - "3000:3000"  # web service
     volumes:
-      - local:/home/agent/.local
-      - vibe:/home/agent/.vibe
-      - ./workspaces/go-html5:/workspace
+      - local:/home/agent/.local:Z
+      - gitconfig:/home/agent/.gitconfig:ro
+      - copilot:/home/agent/.copilot:Z
+      - vibe:/home/agent/.vibe:Z
+      - ./workspaces/go-html5:/workspace:Z
 
   toad:
     <<: *agent
@@ -97,9 +105,11 @@ services:
     ports:
       - "8001:8000"  # web service
     volumes:
-      - local:/home/agent/.local
-      - vibe:/home/agent/.vibe
-      - ./workspaces/toad:/workspace
+      - local:/home/agent/.local:Z
+      - gitconfig:/home/agent/.gitconfig:ro
+      - copilot:/home/agent/.copilot:Z
+      - vibe:/home/agent/.vibe:Z
+      - ./workspaces/toad:/workspace:Z
 
   agentbox:
     <<: *agent
@@ -108,11 +118,25 @@ services:
     ports:
       - "8002:8000"  # web service
     volumes:
-      - local:/home/agent/.local
-      - vibe:/home/agent/.vibe
-      - ./workspaces/agentbox:/workspace
+      - local:/home/agent/.local:Z
+      - gitconfig:/home/agent/.gitconfig:ro
+      - copilot:/home/agent/.copilot:Z
+      - vibe:/home/agent/.vibe:Z
+      - ./workspaces/agentbox:/workspace:Z
 
 volumes:
+  gitconfig:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./home/.gitconfig
+  copilot:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./home/.copilot
   vibe:
     driver: local
     driver_opts:
