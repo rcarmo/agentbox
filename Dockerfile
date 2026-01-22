@@ -70,11 +70,13 @@ uid_gid_changed() {
         return 0  # No marker = needs init
     fi
     
-    local current_uid=$(id -u agent 2>/dev/null || echo "")
-    local current_gid=$(id -g agent 2>/dev/null || echo "")
+    # Compare against TARGET UID/GID (from env vars if set, else current)
+    local target_uid="${PUID:-$(id -u agent 2>/dev/null)}"
+    local target_gid="${PGID:-$(id -g agent 2>/dev/null)}"
     local stored=$(cat "$MARKER_FILE" 2>/dev/null || echo "")
     
-    if [ "$stored" != "${current_uid}:${current_gid}" ]; then
+    if [ "$stored" != "${target_uid}:${target_gid}" ]; then
+        echo "UID/GID changed: was $stored, now ${target_uid}:${target_gid}"
         return 0  # Changed
     fi
     return 1  # Same
@@ -178,7 +180,7 @@ fix_ownership() {
 }
 
 mark_initialized() {
-    # Store current UID:GID so we can detect changes
+    # Store TARGET UID:GID (after setup_user_ids has run)
     echo "$(id -u agent):$(id -g agent)" > "$MARKER_FILE"
 }
 
