@@ -140,7 +140,7 @@ exec "$@"
 ENTRYPOINT_USER
 RUN chmod +x /entrypoint-user.sh
 
-# Layer 4: Install Homebrew, Node, Go, OpenCode, Bun, UV, and Python tools as agent
+# Layer 4: Install Homebrew, Node, Go, Copilot, OpenCode, Bun, UV, and Python tools as agent
 USER agent
 WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
@@ -148,6 +148,7 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
     brew update && brew install node golang && \
     npm i -g opencode-ai && \
+    npm i -g @github/copilot && \
     curl -fsSL https://bun.sh/install | bash && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \

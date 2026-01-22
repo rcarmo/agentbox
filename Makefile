@@ -8,4 +8,4 @@ down: ## Stop and remove services
 	docker compose down
 
 enter-%: ## Enter tmux in the named agent container (usage: make enter-<name>)
-	docker exec -u agent -it agent-$* sh -c "tmux new -As0"
+	docker exec -u agent -it agent-$* tmux new -As0

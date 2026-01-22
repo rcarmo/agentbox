@@ -17,6 +17,7 @@ I found myself wanting to quickly spin up isolated coding environments for AI ag
 The container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, `ssh`/`mosh` server, and a minimal RDP desktop environment to run these:
 
 - **[Batrachian Toad](https://github.com/batrachianai/toad)**: A unified interface for AI in your terminal
+- **[Copilot CLI](https://github.com/github/copilot-cli)**: My usual go-to
 - **[Mistral Vibe](https://github.com/mistralai/mistral-vibe)**: A nice coding assistant pre-installed
 - **[OpenCode](https://github.com/anomalyco/opencode/)**: Another coding assistant pre-installed
 - **Development Environment**: Debian Bookworm with essential development tools
@@ -61,6 +62,16 @@ docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -e ENABLE_RDP=true -p 22:
 ```
 
 ## Quick Start
+
+### Docker Compose
+
+The `docker compose` file includes an example of a set of agent workspaces that you can customize. Use the `Makefile` to quickly start/stop the instances and enter one of them by typing:
+
+```bash
+make enter-<instance-name>
+```
+
+That will start (or resume) a `tmux` session inside the container, where you can run your agents.
 
 ### Using Agentbox Manager (still WIP)
 
