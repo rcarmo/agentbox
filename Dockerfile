@@ -141,6 +141,17 @@ BASHRC
 [ -d "$HOME/.local/bin" ] && PATH="$HOME/.local/bin:$PATH"
 PROFILE
     fi
+    
+    # Create symlinks to /config for persistent config files
+    for item in .gitconfig .vibe .gemini .copilot .vimrc .tmux.conf; do
+        target="/config/$item"
+        link="$HOME_DIR/$item"
+        if [ -e "$target" ] || [ -d "$target" ]; then
+            rm -rf "$link" 2>/dev/null || true
+            ln -sf "$target" "$link"
+            echo "Linked $link -> $target"
+        fi
+    done
 }
 
 setup_user_ids() {
