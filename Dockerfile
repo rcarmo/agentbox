@@ -198,8 +198,7 @@ WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
     echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
-    brew update && brew install node golang copilot-cli && \
-    npm i -g opencode-ai && \
+    brew update && brew install node golang copilot-cli gemini-cli anomalyco/tap/opencode && \
     curl -fsSL https://bun.sh/install | bash && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
