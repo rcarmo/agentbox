@@ -21,13 +21,13 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     # Core utilities
     ca-certificates apt-transport-https gnupg curl wget unzip \
-    bash-completion man rsync sudo \
+    bash-completion man rsync sudo less zsh \
     # Development tools
-    git vim tmux htop \
+    git vim tmux htop tree ripgrep \
     # SSH/mosh server
     openssh-server mosh \
     # Network tools
-    bmon net-tools iputils-ping dnsutils \
+    bmon net-tools iputils-ping dnsutils iproute2 \
     # Build essentials
     build-essential cmake make pkg-config \
     # Python dependencies
@@ -40,7 +40,9 @@ RUN apt-get update && \
     gtk2-engines-pixbuf elementary-icon-theme \
     fonts-dejavu fonts-inter fonts-noto fonts-roboto fonts-liberation \
     xclip x11-utils x11-xserver-utils \
-    dbus-x11 xdg-utils xterm && \
+    dbus-x11 xdg-utils xterm \
+    # Process management tools
+    psmisc procps && \
     # Install Docker
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list && \
@@ -209,7 +211,7 @@ WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
     echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
-    brew update && brew install node golang copilot-cli gemini-cli anomalyco/tap/opencode && \
+    brew update && brew install node golang copilot-cli gemini-cli anomalyco/tap/opencode nushell && \
     curl -fsSL https://bun.sh/install | bash && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
