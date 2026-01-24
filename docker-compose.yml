@@ -50,10 +50,8 @@ services:
     ports:
       - "8001:8000"  # web service
     volumes:
-      - ./home/.gitconfig:/home/agent/.gitconfig:ro
+      - ./home:/config:ro
       - local:/home/agent/.local
-      - copilot:/home/agent/.copilot
-      - vibe:/home/agent/.vibe
       - ./workspaces/toad:/workspace
 
   copilot:
@@ -63,25 +61,11 @@ services:
     ports:
       - "8002:8000"  # web service
     volumes:
-      - ./home/.gitconfig:/home/agent/.gitconfig:ro
+      - ./home:/config:ro
       - local:/home/agent/.local
-      - copilot:/home/agent/.copilot
-      - vibe:/home/agent/.vibe
       - ./workspaces/agentbox:/workspace
 
 volumes:
-  copilot:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./home/.copilot
-  vibe:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./home/.vibe
   local:
     driver: local
     driver_opts:
