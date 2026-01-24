@@ -50,7 +50,7 @@ services:
     ports:
       - "8001:8000"  # web service
     volumes:
-      - ./home:/config:ro
+      - config:/config
       - local:/home/agent/.local
       - ./workspaces/toad:/workspace
 
@@ -61,11 +61,17 @@ services:
     ports:
       - "8002:8000"  # web service
     volumes:
-      - ./home:/config:ro
+      - config:/config
       - local:/home/agent/.local
       - ./workspaces/agentbox:/workspace
 
 volumes:
+  config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./home
   local:
     driver: local
     driver_opts:
