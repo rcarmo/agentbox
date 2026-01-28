@@ -14,19 +14,16 @@ I found myself wanting to quickly spin up isolated coding environments for AI ag
 
 ## Features
 
-The container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, `ssh`/`mosh` server, and a minimal RDP desktop environment to run these:
+The default container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, and `ssh`/`mosh` server to run these:
 
 - **[Batrachian Toad](https://github.com/batrachianai/toad)**: A unified interface for AI in your terminal
 - **[Copilot CLI](https://github.com/github/copilot-cli)**: My usual go-to
-- **[Mistral Vibe](https://github.com/mistralai/mistral-vibe)**: A nice coding assistant pre-installed
 - **[OpenCode](https://github.com/anomalyco/opencode/)**: Another coding assistant pre-installed
 - **Development Environment**: Debian Bookworm with essential development tools
-- **Visual Studio Code**: for ARM or Intel
-- **Package Managers**: Homebrew and APT package management, plus `uv`, `node`, `bun`, `go`, etc.
+- **Package Managers**: Homebrew and APT package management, plus `uv`, `bun`, etc.
 - **Docker-in-Docker**: Docker support for containerized workflows (requires you to run the container in privileged mode, so be careful)
 - **Service Control**: Fine-grained control over which services start using environment variables (`ENABLE_DOCKER`, `ENABLE_SSH`, `ENABLE_RDP`)
-- **Remote Access**: SSH (port 22) and RDP (port 3389) connectivity (disabled by default)
-- **Minimal Desktop**: XFCE desktop with minimal utilities, so you can run graphical applications, Playwright, etc.
+- **Remote Access**: SSH (port 22) connectivity (disabled by default)
 - **Persistent Storage**: optional data and agent home directory persistence
 
 ## Roadmap
@@ -57,11 +54,19 @@ docker run -d -e ENABLE_DOCKER=true agentbox
 # Enable Docker and SSH for development
 docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -p 22:22 agentbox
 
-# Full desktop experience with all services
-docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -e ENABLE_RDP=true -p 22:22 -p 3389:3389 agentbox
+# Full desktop experience with all services (GUI image)
+docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -e ENABLE_RDP=true -p 22:22 -p 3389:3389 agentbox:gui
 ```
 
 ## Quick Start
+
+### Optional Tool Installs
+
+Run `make -C ~ tools` (or `make -C ~ node`, `make -C ~ go`, `make -C ~ gemini`, `make -C ~ vibe`) to install optional tooling via Homebrew/uv.
+
+### GUI Image
+
+The GUI build is published as the `:gui` tag (also `<release>-gui`) and includes XFCE, XRDP, and VS Code.
 
 ### Docker Compose
 
@@ -146,10 +151,13 @@ ssh agent@localhost -p 22
 ### Using Docker Directly
 
 ```bash
-# Build the image
+# Build the headless image
 docker build -t agentbox .
 
-# Run the container with selected services
+# Build the GUI image
+docker build -t agentbox:gui --target gui .
+
+# Run the container with selected services (GUI image)
 docker run -d \
   --name agentbox \
   --privileged \
@@ -159,7 +167,7 @@ docker run -d \
   -p 22:22 \
   -p 3389:3389 \
   -v $(pwd):/workspace \
-  agentbox
+  agentbox:gui
 ```
 
 ### Using Batrachian Toad

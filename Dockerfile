@@ -1,5 +1,5 @@
 # Agent - Coding Agent Sandbox
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS base
 
 # Environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /tmp
 
-# Layer 1: Install all system packages (locales, core tools, Docker, desktop) in single apt transaction
+# Layer 1: Install all system packages (locales, core tools, Docker) in single apt transaction
 RUN apt-get update && \
     apt-get install -y --no-install-recommends locales tzdata && \
     sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
@@ -33,14 +33,6 @@ RUN apt-get update && \
     # Python dependencies
     python3-dev python3-pip python3-venv libssl-dev libffi-dev \
     lsb-release \
-    # Desktop environment
-    xfce4 xfce4-goodies firefox-esr \
-    xrdp xorgxrdp \
-    lxterminal pcmanfm lxpanel \
-    gtk2-engines-pixbuf elementary-icon-theme \
-    fonts-dejavu fonts-inter fonts-noto fonts-roboto fonts-liberation \
-    xclip x11-utils x11-xserver-utils \
-    dbus-x11 xdg-utils xterm \
     # Process management tools
     psmisc procps && \
     # Install Docker
@@ -205,21 +197,84 @@ exec "$@"
 ENTRYPOINT_USER
 RUN chmod +x /entrypoint-user.sh
 
-# Layer 4: Install Homebrew, Node, Go, Copilot, OpenCode, Bun, UV, and Python tools as agent
+# Layer 4: Install Homebrew, Copilot, Bun, UV, and optional tools Makefile as agent
 USER agent
 WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
     echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
-    brew update && brew install node golang copilot-cli gemini-cli anomalyco/tap/opencode nushell && \
+    brew update && brew install copilot-cli nushell && \
     curl -fsSL https://bun.sh/install | bash && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
     echo 'source "$HOME/.local/bin/env"' >> ~/.bashrc && \
-    ~/.local/bin/uv tool install -U batrachian-toad && \
-    ~/.local/bin/uv tool install -U mistral-vibe
+    cat > ~/Makefile <<'MAKEFILE'
+.PHONY: tools node go gemini vibe all
+BREW ?= /home/linuxbrew/.linuxbrew/bin/brew
+UV ?= $(HOME)/.local/bin/uv
 
-# Layer 5: Create X session files as agent
+tools: node go gemini vibe
+node:
+	$(BREW) install node
+
+go:
+	$(BREW) install golang
+
+gemini:
+	$(BREW) install gemini-cli
+
+vibe:
+	$(UV) tool install -U mistral-vibe
+
+all: tools
+MAKEFILE
+
+# Layer 5: Save skeleton
+USER root
+RUN cp -a /home/agent/. /etc/skel.agent/ && \
+    echo "Skeleton: $(find /etc/skel.agent -type f | wc -l) files"
+
+# Layer 7: Create all runtime scripts
+RUN cat > /entrypoint.sh <<'ENTRYPOINT'
+#!/bin/bash
+set -euo pipefail
+echo "=== Agent Coding Agent Sandbox ==="
+echo "User: agent | SSH Password: smith | RDP: port 3389"
+echo ""
+[ "${ENABLE_DOCKER:-false}" = "true" ] && echo "Starting Docker..." && /etc/init.d/docker start || echo "Docker disabled"
+[ "${ENABLE_SSH:-false}" = "true" ] && echo "Starting sshd..." && /usr/sbin/sshd || echo "SSH disabled"
+if [ "${ENABLE_RDP:-false}" = "true" ]; then
+    if [ -x /quickstart.sh ]; then
+        echo "Starting xrdp..."
+        exec /quickstart.sh
+    else
+        echo "RDP requested but GUI stack is not installed in this image."
+        exit 1
+    fi
+else
+    echo "RDP disabled. Container idle..."
+    tail -f /dev/null
+fi
+ENTRYPOINT
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 22 3389
+ENTRYPOINT ["/entrypoint-user.sh", "/entrypoint.sh"]
+
+
+FROM base AS gui
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    xfce4 xfce4-goodies firefox-esr \
+    xrdp xorgxrdp \
+    lxterminal pcmanfm lxpanel \
+    gtk2-engines-pixbuf elementary-icon-theme \
+    fonts-dejavu fonts-inter fonts-noto fonts-roboto fonts-liberation \
+    xclip x11-utils x11-xserver-utils \
+    dbus-x11 xdg-utils xterm && \
+    apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+USER agent
 RUN cat > ~/.xsession <<'XSESSION'
 #!/bin/sh
 unset SESSION_MANAGER
@@ -248,7 +303,6 @@ XTerm*saveLines: 10000
 XTerm*scrollBar: false
 XRESOURCES
 
-# Layer 6: Install VS Code and save skeleton
 USER root
 RUN ARCH="$(dpkg --print-architecture)" && \
     case "$ARCH" in \
@@ -261,7 +315,6 @@ RUN ARCH="$(dpkg --print-architecture)" && \
     cp -a /home/agent/. /etc/skel.agent/ && \
     echo "Skeleton: $(find /etc/skel.agent -type f | wc -l) files"
 
-# Layer 7: Create all runtime scripts
 RUN cat > /etc/xrdp/startwm.sh <<'STARTWM'
 #!/bin/bash
 set -e
@@ -288,24 +341,6 @@ echo "xrdp started on port 3389"
 echo "Connect: Username=agent Password=smith"
 wait $XRDP_PID
 QUICKSTART
-RUN chmod +x /quickstart.sh && \
-    cat > /entrypoint.sh <<'ENTRYPOINT'
-#!/bin/bash
-set -euo pipefail
-echo "=== Agent Coding Agent Sandbox ==="
-echo "User: agent | SSH Password: smith | RDP: port 3389"
-echo ""
-[ "${ENABLE_DOCKER:-false}" = "true" ] && echo "Starting Docker..." && /etc/init.d/docker start || echo "Docker disabled"
-[ "${ENABLE_SSH:-false}" = "true" ] && echo "Starting sshd..." && /usr/sbin/sshd || echo "SSH disabled"
-if [ "${ENABLE_RDP:-false}" = "true" ]; then
-    echo "Starting xrdp..."
-    exec /quickstart.sh
-else
-    echo "RDP disabled. Container idle..."
-    tail -f /dev/null
-fi
-ENTRYPOINT
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /quickstart.sh
 
-EXPOSE 22 3389
-ENTRYPOINT ["/entrypoint-user.sh", "/entrypoint.sh"]
+FROM base AS headless
