@@ -1,5 +1,5 @@
-help: ## Show available commands
-	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS=":.*##"} {printf "%-16s %s\n", $$1, $$2}'
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 up: ## Start all services in detached mode
 	docker compose up -d
@@ -9,3 +9,18 @@ down: ## Stop and remove services
 
 enter-%: ## Enter tmux in the named agent container (usage: make enter-<name>)
 	docker exec -u agent -it agent-$* tmux new -As0
+
+bump-patch: ## Bump patch version and create git tag
+	@OLD=$$(grep -Po '(?<=^version = ")[^"]+' agent-manager/pyproject.toml); \
+	MAJOR=$$(echo $$OLD | cut -d. -f1); \
+	MINOR=$$(echo $$OLD | cut -d. -f2); \
+	PATCH=$$(echo $$OLD | cut -d. -f3); \
+	NEW="$$MAJOR.$$MINOR.$$((PATCH + 1))"; \
+	sed -i "s/^version = \"$$OLD\"/version = \"$$NEW\"/" agent-manager/pyproject.toml; \
+	git add agent-manager/pyproject.toml; \
+	git commit -m "Bump version to $$NEW"; \
+	git tag "v$$NEW"; \
+	echo "Bumped version: $$OLD -> $$NEW (tagged v$$NEW)"
+
+push: ## Push commits and tags to origin
+	git push origin main --tags
