@@ -137,6 +137,7 @@ jobs:
   build-amd64-gui:
     name: Build AMD64 GUI image
     runs-on: ubuntu-24.04
+    needs: build-amd64
     outputs:
       digest: ${{ steps.build.outputs.digest }}
 
@@ -171,12 +172,15 @@ jobs:
           push: true
           provenance: false
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=amd64-gui
+          cache-from: |
+            type=gha,scope=amd64-gui
+            type=gha,scope=amd64
           cache-to: type=gha,mode=max,scope=amd64-gui
 
   build-arm64-gui:
     name: Build ARM64 GUI image
     runs-on: ubuntu-24.04-arm
+    needs: build-arm64
     outputs:
       digest: ${{ steps.build.outputs.digest }}
 
@@ -211,7 +215,9 @@ jobs:
           push: true
           provenance: false
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=arm64-gui
+          cache-from: |
+            type=gha,scope=arm64-gui
+            type=gha,scope=arm64
           cache-to: type=gha,mode=max,scope=arm64-gui
 
   merge-gui:
