@@ -1,6 +1,6 @@
 [project]
 name = "agentbox-manager"
-version = "0.1.0"
+version = "0.1.1"
 description = "A TUI-based manager for Agent container instances"
 readme = "README.md"
 requires-python = ">=3.12.3"
