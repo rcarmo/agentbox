@@ -117,6 +117,9 @@ alias l='ls -CF'
 [ -d "$HOME/.local/bin" ] && export PATH="$HOME/.local/bin:$PATH"
 [ -f "$HOME/.local/bin/env" ] && source "$HOME/.local/bin/env"
 [ -d "$HOME/.bun" ] && export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH"
+if [ -d "$HOME/.ssh" ] && [ -z "$SSH_AUTH_SOCK" ]; then
+    eval "$(ssh-agent -s)" >/dev/null
+fi
 BASHRC
         fi
     else
@@ -208,6 +211,9 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
     echo 'source "$HOME/.local/bin/env"' >> ~/.bashrc && \
+    echo 'if [ -d "$HOME/.ssh" ] && [ -z "$SSH_AUTH_SOCK" ]; then' >> ~/.bashrc && \
+    echo '    eval "$(ssh-agent -s)" >/dev/null' >> ~/.bashrc && \
+    echo 'fi' >> ~/.bashrc && \
     cat > ~/Makefile <<'MAKEFILE'
 .PHONY: tools node go gemini vibe all
 BREW ?= /home/linuxbrew/.linuxbrew/bin/brew
