@@ -39,6 +39,7 @@ Agentbox uses environment variables to control which services start at container
 - `ENABLE_DOCKER=true` - Start Docker daemon (for Docker-in-Docker support)
 - `ENABLE_SSH=true` - Start SSH server (port 22)
 - `ENABLE_RDP=true` - Start RDP server (port 3389)
+- `AGENTBOX_ENVIRONMENT=cli|gui` - Image-provided environment marker (`cli` for headless/CLI, `gui` for desktop images)
 
 **Default behavior:** All services are disabled unless explicitly enabled.
 
@@ -88,7 +89,6 @@ The Agentbox Manager is a first stab at a TUI for easily managing multiple agent
 2. Run the quick start script:
 
 ```bash
-./run-manager.sh
 ```
 
 **Manager Features:**
@@ -200,7 +200,6 @@ toad -a open-hands
 - Consider using SSH keys instead of password authentication
 - For production use, consider disabling unnecessary services and changing default credentials
 
-For extra (in)security, consider running the manager with a remote Docker socket to a VM where the actual containers run.
 
 ## Credits
 

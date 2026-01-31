@@ -11,17 +11,16 @@ enter-%: ## Enter tmux in the named agent container (usage: make enter-<name>)
 	docker exec -u agent -it agent-$* tmux new -As0
 
 bump-patch: ## Bump patch version and create git tag
-	@OLD=$$(grep -Po '(?<=^version = ")[^"]+' agent-manager/pyproject.toml); \
+	@OLD=$$(cat VERSION); \
 	MAJOR=$$(echo $$OLD | cut -d. -f1); \
 	MINOR=$$(echo $$OLD | cut -d. -f2); \
 	PATCH=$$(echo $$OLD | cut -d. -f3); \
 	NEW="$$MAJOR.$$MINOR.$$((PATCH + 1))"; \
-	sed -i "s/^version = \"$$OLD\"/version = \"$$NEW\"/" agent-manager/pyproject.toml; \
-	git add agent-manager/pyproject.toml; \
+	echo $$NEW > VERSION; \
+	git add VERSION; \
 	git commit -m "Bump version to $$NEW"; \
 	git tag "v$$NEW"; \
 	echo "Bumped version: $$OLD -> $$NEW (tagged v$$NEW)"
-
 push: ## Push commits and current tag to origin
 	@TAG=$$(git describe --tags --exact-match 2>/dev/null); \
 	git push origin main; \

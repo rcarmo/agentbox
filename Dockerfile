@@ -7,7 +7,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8 \
-    HOME=/home/agent
+    HOME=/home/agent \
+    AGENTBOX_ENVIRONMENT=cli
+
+RUN echo "export AGENTBOX_ENVIRONMENT=${AGENTBOX_ENVIRONMENT}" > /etc/profile.d/agentbox-env.sh
 
 WORKDIR /tmp
 
@@ -269,6 +272,8 @@ ENTRYPOINT ["/entrypoint-user.sh", "/entrypoint.sh"]
 
 
 FROM base AS gui
+ENV AGENTBOX_ENVIRONMENT=gui
+RUN echo "export AGENTBOX_ENVIRONMENT=${AGENTBOX_ENVIRONMENT}" > /etc/profile.d/agentbox-env.sh
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     xfce4 xfce4-goodies firefox-esr \
@@ -283,6 +288,7 @@ RUN apt-get update && \
 USER agent
 RUN cat > ~/.xsession <<'XSESSION'
 #!/bin/sh
+[ -f /etc/profile.d/agentbox-env.sh ] && . /etc/profile.d/agentbox-env.sh
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
 export XDG_RUNTIME_DIR=/tmp/runtime-$USER
@@ -324,6 +330,7 @@ RUN ARCH="$(dpkg --print-architecture)" && \
 RUN cat > /etc/xrdp/startwm.sh <<'STARTWM'
 #!/bin/bash
 set -e
+[ -f /etc/profile.d/agentbox-env.sh ] && . /etc/profile.d/agentbox-env.sh
 sleep 1
 export DISPLAY=${DISPLAY:-:10}
 export PATH="$HOME/.local/bin:$PATH"
@@ -350,3 +357,4 @@ QUICKSTART
 RUN chmod +x /quickstart.sh
 
 FROM base AS headless
+ENV AGENTBOX_ENVIRONMENT=cli
