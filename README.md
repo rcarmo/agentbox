@@ -81,7 +81,6 @@ That will start (or resume) a `tmux` session inside the container, where you can
 
 ### Using Agentbox Manager (still WIP)
 
-![Instance Manager](docs/screenshot.svg)
 
 The Agentbox Manager is a first stab at a TUI for easily managing multiple agentbox instances with automatic naming, folder picker, and proper permission handling.
 
