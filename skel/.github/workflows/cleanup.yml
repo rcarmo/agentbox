@@ -1,0 +1,78 @@
+name: Cleanup (runs/tags/artifacts)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup old workflow runs, tags, and artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const keepCount = 5;
+            const { owner, repo } = context.repo;
+
+            core.info('Fetching workflow runs...');
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo,
+              { owner, repo, per_page: 100 }
+            );
+
+            const sortedRuns = runs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const runsToDelete = sortedRuns.slice(keepCount);
+
+            core.info(`Found ${runs.length} workflow runs, keeping ${keepCount} newest, deleting ${runsToDelete.length} older...`);
+            for (const run of runsToDelete) {
+              core.info(`Deleting run #${run.run_number} from ${run.created_at}`);
+              try {
+                await github.rest.actions.deleteWorkflowRun({ owner, repo, run_id: run.id });
+              } catch (error) {
+                core.warning(`Failed to delete run ${run.id}: ${error.message}`);
+              }
+            }
+
+            core.info('Fetching tags...');
+            const tags = await github.paginate(github.rest.repos.listTags, { owner, repo, per_page: 100 });
+            const currentTag = context.ref.replace('refs/tags/', '');
+            const otherTags = tags.filter(tag => tag.name !== currentTag);
+            const tagsToDelete = otherTags.slice(keepCount);
+
+            core.info(`Found ${tags.length} tags, keeping ${keepCount} newest (including current: ${currentTag}), deleting ${tagsToDelete.length} older...`);
+            for (const tag of tagsToDelete) {
+              core.info(`Deleting tag ${tag.name}`);
+              try {
+                await github.rest.git.deleteRef({ owner, repo, ref: `tags/${tag.name}` });
+              } catch (error) {
+                core.warning(`Failed to delete tag ${tag.name}: ${error.message}`);
+              }
+            }
+
+            core.info('Fetching artifacts...');
+            const artifacts = await github.paginate(
+              github.rest.actions.listArtifactsForRepo,
+              { owner, repo, per_page: 100 }
+            );
+
+            const sortedArtifacts = artifacts
+              .filter(artifact => !artifact.expired)
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const artifactsToDelete = sortedArtifacts.slice(keepCount);
+
+            core.info(`Found ${artifacts.length} artifacts, keeping ${keepCount} newest, deleting ${artifactsToDelete.length} older...`);
+            for (const artifact of artifactsToDelete) {
+              core.info(`Deleting artifact ${artifact.name} (id ${artifact.id})`);
+              try {
+                await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: artifact.id });
+              } catch (error) {
+                core.warning(`Failed to delete artifact ${artifact.id}: ${error.message}`);
+              }
+            }

@@ -218,7 +218,7 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
     echo '    eval "$(ssh-agent -s)" >/dev/null' >> ~/.bashrc && \
     echo 'fi' >> ~/.bashrc && \
     cat > ~/Makefile <<'MAKEFILE'
-.PHONY: tools node go gemini vibe all
+.PHONY: tools node go gemini vibe all init-workspace
 BREW ?= /home/linuxbrew/.linuxbrew/bin/brew
 UV ?= $(HOME)/.local/bin/uv
 
@@ -235,8 +235,16 @@ gemini:
 vibe:
 	$(UV) tool install -U mistral-vibe
 
+init-workspace: ## Copy built-in workspace skeleton into /workspace (no overwrite)
+	@mkdir -p /workspace
+	@rsync -a --ignore-existing $(HOME)/workspace-skel/ /workspace/
+	@echo "Initialized /workspace from $(HOME)/workspace-skel (no overwrite)"
+
 all: tools
 MAKEFILE
+
+# Layer 4.5: Ship a project skeleton template
+COPY --chown=agent:agent skel/ /home/agent/workspace-skel/
 
 # Layer 5: Save skeleton
 USER root

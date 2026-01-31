@@ -65,6 +65,18 @@ docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -e ENABLE_RDP=true -p 22:
 
 Run `make -C ~ tools` (or `make -C ~ node`, `make -C ~ go`, `make -C ~ gemini`, `make -C ~ vibe`) to install optional tooling via Homebrew/uv.
 
+### Workspace skeleton
+
+Agentbox ships a built-in project skeleton at `/home/agent/workspace-skel`.
+
+To copy it into your current `/workspace` **without overwriting existing files**:
+
+```bash
+make init-workspace
+```
+
+See [docs/workspace-skeleton.md](docs/workspace-skeleton.md) for details.
+
 ### GUI Image
 
 The GUI build is published as the `:gui` tag (also `<release>-gui`) and includes XFCE, XRDP, and VS Code.

@@ -8,6 +8,10 @@ README.md
 *.md
 docs/
 
+# Include the built-in project skeleton in the image
+!skel/
+!skel/**
+
 # Docker artifacts
 .dockerignore
 docker-compose*.yml

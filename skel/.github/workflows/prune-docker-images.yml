@@ -1,0 +1,74 @@
+name: Prune Docker images
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  packages: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete untagged and old tagged versions
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const keepCount = 5;
+            const { owner, repo } = context.repo;
+            const packageName = repo.toLowerCase();
+
+            core.info(`Cleaning container package versions: ${owner}/${repo} (${packageName})`);
+
+            const versions = await github.paginate(
+              github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg,
+              {
+                package_type: 'container',
+                package_name: packageName,
+                org: owner,
+                per_page: 100,
+                state: 'active',
+              }
+            );
+
+            const tagged = versions.filter(v => v.metadata?.container?.tags?.length > 0);
+            const untagged = versions.filter(v => !v.metadata?.container?.tags || v.metadata.container.tags.length === 0);
+
+            core.info(`Tagged versions: ${tagged.length}, Untagged versions: ${untagged.length}`);
+
+            for (const v of untagged) {
+              core.info(`Deleting untagged version ${v.id} (created: ${v.created_at})`);
+              try {
+                await github.rest.packages.deletePackageVersionForOrg({
+                  package_type: 'container',
+                  package_name: packageName,
+                  org: owner,
+                  package_version_id: v.id,
+                });
+              } catch (e) {
+                core.warning(`Failed to delete untagged version ${v.id}: ${e.message}`);
+              }
+            }
+
+            const sortedTagged = tagged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const toDelete = sortedTagged.slice(keepCount);
+
+            core.info(`Keeping ${keepCount} newest tagged versions, deleting ${toDelete.length} older ones...`);
+            for (const v of toDelete) {
+              const tags = v.metadata?.container?.tags?.join(', ') || 'unknown';
+              core.info(`Deleting version ${v.id} with tags: ${tags} (created: ${v.created_at})`);
+              try {
+                await github.rest.packages.deletePackageVersionForOrg({
+                  package_type: 'container',
+                  package_name: packageName,
+                  org: owner,
+                  package_version_id: v.id,
+                });
+              } catch (e) {
+                core.warning(`Failed to delete version ${v.id}: ${e.message}`);
+              }
+            }
