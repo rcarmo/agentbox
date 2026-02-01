@@ -25,6 +25,7 @@ The default container provides a Debian userland, Homebrew, (optional) Docker-in
 - **Service Control**: Fine-grained control over which services start using environment variables (`ENABLE_DOCKER`, `ENABLE_SSH`, `ENABLE_RDP`)
 - **Remote Access**: SSH (port 22) connectivity (disabled by default)
 - **Persistent Storage**: optional data and agent home directory persistence
+- **Agent SKILLs and CI Scaffolding**: The `agent` user ships with a repository skeleton/scaffolding for common development steps, as well as agent skils to go with it (see the `Makefile` inside `/home/agent`)
 
 ## Roadmap
 
