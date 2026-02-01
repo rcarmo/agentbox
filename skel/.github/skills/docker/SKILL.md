@@ -5,6 +5,7 @@ Provide a reusable GitHub Actions workflow to build/push multi-arch images to GH
 
 ## Conventions
 - Publish on tags `v*`.
+- Use native Intel or ARM runners for CI/CD. Don't use QEMU
 - Use buildx + per-arch digest builds, then merge into a manifest.
 - Use `docker/metadata-action` for semver tag derivation.
 

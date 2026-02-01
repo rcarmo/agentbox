@@ -8,4 +8,5 @@ Applies when: this repo builds/publishes a Docker image.
 
 ## Conventions
 - Keep Docker build args/env documented in README.
+- Prioritize building minimal images, taking advantage of caching and layers to remove build artifacts
 - Prefer reproducible builds (minimize network fetches at runtime; pin versions when practical).

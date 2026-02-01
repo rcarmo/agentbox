@@ -16,3 +16,6 @@ Provide a consistent Python dev experience (install/lint/test/format/coverage) v
 - `make test` → `python -m pytest`
 - `make coverage` → `python -m pytest --cov=... --cov-report=term-missing`
 - `make check` → `make lint && make coverage`
+
+## Quality Bars
+- End product should be installable from the final repo URL via `uv tool` or `pip`

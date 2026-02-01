@@ -21,3 +21,12 @@ If you need a new workflow step, add a Make target rather than running ad-hoc co
 
 CI should call `make check` (or `make lint` + `make test` when `check` doesn’t exist).
 Keep CI logic minimal; prefer Make targets for consistency.
+
+## Environment and Package Management
+
+If `AGENTBOX_ENVIRONMENT` is set, then:
+
+- You have `uv` and `brew` to install whatever tooling you require (as well as `sudo apt`)
+- You should install Python packages with `--user --break-system-packages` rather than use a `venv` to minimize workspace size
+- You _may_ have `docker` installed (but disabled - check first before using it)
+- If it is set to `gui`, then you have a running X server at :10
