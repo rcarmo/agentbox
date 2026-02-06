@@ -1,3 +1,8 @@
+---
+name: Frontend bundling via Bun/Node
+description: Bundling via Bun/Node with Make targets for typecheck and bundling
+---
+
 # Skill: Frontend bundling via Bun/Node
 
 ## Goal

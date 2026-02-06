@@ -1,3 +1,8 @@
+---
+name: Go project conventions
+description: Project conventions with module caching, linting, security checks, and tests via Make
+---
+
 # Skill: Go project conventions
 
 ## Goal

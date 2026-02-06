@@ -1,3 +1,8 @@
+---
+name: Docker image publishing
+description: multi-arch image publishing to GHCR via GitHub Actions
+---
+
 # Skill: Docker image publishing
 
 ## Goal

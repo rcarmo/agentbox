@@ -1,3 +1,8 @@
+---
+name: Building Native macOS CLI Apps with SwiftUI Visualization
+description: CLI apps with SwiftUI visualization
+---
+
 # SKILL: Building Native macOS CLI Apps with SwiftUI Visualization
 
 This document captures design patterns, architectural decisions, and lessons learned for building lightweight native macOS CLI tools with rich visual interfaces—without the overhead of Electron or web technologies.

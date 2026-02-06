@@ -1,3 +1,8 @@
+---
+name: Copilot instruction layering
+description: instruction layering with reusable, conditional instruction files
+---
+
 # Skill: Copilot instruction layering
 
 ## Goal

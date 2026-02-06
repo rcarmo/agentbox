@@ -1,3 +1,8 @@
+---
+name: Python project conventions
+description: Project conventions for install, lint, test, format, and coverage via Make
+---
+
 # Skill: Python project conventions
 
 ## Goal

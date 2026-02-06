@@ -1,3 +1,8 @@
+---
+name: GitHub Actions CI patterns
+description: CI patterns that call Make targets
+---
+
 # Skill: GitHub Actions CI patterns
 
 ## Goal
