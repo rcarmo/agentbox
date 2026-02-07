@@ -312,14 +312,16 @@ jobs:
           script: |
             const keepCount = 5;
             const { owner, repo } = context.repo;
-            
-            // Keep only the 5 newest workflow runs, delete the rest
+
+            // Keep only the 5 newest workflow runs for *this workflow*, delete the rest
             core.info('Fetching workflow runs...');
+            const workflow_id = 'publish.yml';
             const runs = await github.paginate(
-              github.rest.actions.listWorkflowRunsForRepo,
+              github.rest.actions.listWorkflowRuns,
               {
                 owner,
                 repo,
+                workflow_id,
                 per_page: 100
               }
             );
