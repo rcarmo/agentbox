@@ -35,4 +35,5 @@ This copies `/home/agent/workspace-skel/` into `/workspace/` **without overwriti
 ## Notes
 
 - The workflows are intentionally generic and expect projects to provide meaningful `make check` (or `make lint` + `make test`) targets.
+- The skeleton `Makefile` includes optional Docker image build/publish helpers (`make docker-build`, `make dual-tag`).
 - Docker publishing workflows are geared towards pushing to GHCR on tags `v*`.

@@ -123,7 +123,6 @@ jobs:
       - name: Create and push multi-arch manifest
         working-directory: /tmp
         run: |
-          # Create manifest with both architectures
           docker buildx imagetools create \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }} \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
@@ -134,125 +133,10 @@ jobs:
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
 
-  build-amd64-gui:
-    name: Build AMD64 GUI image
-    runs-on: ubuntu-24.04
-    needs: build-amd64
-    outputs:
-      digest: ${{ steps.build.outputs.digest }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      - name: Build and push AMD64 GUI image
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          target: gui
-          platforms: linux/amd64
-          push: true
-          provenance: false
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: |
-            type=gha,scope=amd64-gui
-            type=gha,scope=amd64
-          cache-to: type=gha,mode=max,scope=amd64-gui
-
-  build-arm64-gui:
-    name: Build ARM64 GUI image
-    runs-on: ubuntu-24.04-arm
-    needs: build-arm64
-    outputs:
-      digest: ${{ steps.build.outputs.digest }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      - name: Build and push ARM64 GUI image
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          target: gui
-          platforms: linux/arm64
-          push: true
-          provenance: false
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: |
-            type=gha,scope=arm64-gui
-            type=gha,scope=arm64
-          cache-to: type=gha,mode=max,scope=arm64-gui
-
-  merge-gui:
-    name: Create GUI multi-arch manifest
-    runs-on: ubuntu-latest
-    needs: [build-amd64-gui, build-arm64-gui]
-
-    steps:
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create and push GUI multi-arch manifest
-        working-directory: /tmp
-        run: |
-          docker buildx imagetools create \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-gui \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:gui \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-amd64-gui.outputs.digest }} \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-arm64-gui.outputs.digest }}
-
-      - name: Inspect merged GUI image
-        run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-gui
-
   prune-releases:
     name: Prune old releases
     runs-on: ubuntu-latest
-    needs: [merge, merge-gui]
+    needs: merge
     permissions:
       contents: write
     steps:
@@ -300,11 +184,11 @@ jobs:
   cleanup:
     name: Cleanup old runs and tags
     runs-on: ubuntu-latest
-    needs: [merge, merge-gui]
+    needs: merge
     permissions:
       contents: write
       actions: write
-    
+
     steps:
       - name: Cleanup old workflow runs and tags
         uses: actions/github-script@v7
@@ -312,7 +196,7 @@ jobs:
           script: |
             const keepCount = 5;
             const { owner, repo } = context.repo;
-            
+
             // Keep only the 5 newest workflow runs, delete the rest
             core.info('Fetching workflow runs...');
             const runs = await github.paginate(
@@ -323,13 +207,13 @@ jobs:
                 per_page: 100
               }
             );
-            
+
             // Sort by created date (newest first) and skip the first 5
-            const sortedRuns = runs.sort((a, b) => 
+            const sortedRuns = runs.sort((a, b) =>
               new Date(b.created_at) - new Date(a.created_at)
             );
             const runsToDelete = sortedRuns.slice(keepCount);
-            
+
             core.info(`Found ${runs.length} workflow runs, keeping ${keepCount} newest, deleting ${runsToDelete.length} older...`);
             for (const run of runsToDelete) {
               core.info(`Deleting run #${run.run_number} from ${run.created_at}`);
@@ -343,7 +227,7 @@ jobs:
                 core.warning(`Failed to delete run ${run.id}: ${error.message}`);
               }
             }
-            
+
             // Keep only the 5 newest tags, delete the rest
             core.info('Fetching tags...');
             const tags = await github.paginate(
@@ -354,13 +238,13 @@ jobs:
                 per_page: 100
               }
             );
-            
+
             const currentTag = context.ref.replace('refs/tags/', '');
             const otherTags = tags.filter(tag => tag.name !== currentTag);
-            
+
             // Keep the newest 5, delete the rest
             const tagsToDelete = otherTags.slice(keepCount);
-            
+
             core.info(`Found ${tags.length} tags, keeping ${keepCount} newest (including current: ${currentTag}), deleting ${tagsToDelete.length} older...`);
             for (const tag of tagsToDelete) {
               core.info(`Deleting tag ${tag.name}`);
@@ -374,17 +258,17 @@ jobs:
                 core.warning(`Failed to delete tag ${tag.name}: ${error.message}`);
               }
             }
-            
+
             core.info('Cleanup completed');
 
-  prune-docker-images:
-    name: Prune old Docker images
+  cleanup-ghcr:
+    name: Cleanup old GHCR images
     runs-on: ubuntu-latest
-    needs: [merge, merge-gui]
+    needs: merge
     permissions:
       packages: write
     steps:
-      - name: Delete untagged images
+      - name: Delete untagged and old tagged versions
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}
@@ -397,33 +281,41 @@ jobs:
             core.info(`Package name in registry: ${packageName}`);
 
             try {
+              const ownerInfo = await github.rest.users.getByUsername({ username: owner });
+              const isOrg = ownerInfo.data.type === 'Organization';
+              const ownerArgs = isOrg ? { org: owner } : { username: owner };
+              const listVersions = isOrg
+                ? github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg
+                : github.rest.packages.getAllPackageVersionsForPackageOwnedByUser;
+              const deleteVersion = isOrg
+                ? github.rest.packages.deletePackageVersionForOrg
+                : github.rest.packages.deletePackageVersionForUser;
+
+              core.info(`Owner type: ${ownerInfo.data.type}`);
+
               const versions = await github.paginate(
-                github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg,
+                listVersions,
                 {
                   package_type: 'container',
                   package_name: packageName,
-                  org: owner,
                   per_page: 100,
                   state: 'active',
+                  ...ownerArgs,
                 }
               );
 
               core.info(`Found ${versions.length} package versions`);
 
-              const taggedVersions = versions.filter(
-                v => v.metadata?.container?.tags?.length > 0
-              );
-              const untaggedVersions = versions.filter(
-                v => !v.metadata?.container?.tags || v.metadata.container.tags.length === 0
+              const taggedVersions = versions.filter(v => v.metadata?.container?.tags?.length > 0);
+              const untaggedVersions = versions.filter(v => !v.metadata?.container?.tags || v.metadata.container.tags.length === 0);
+
+              core.info(`Tagged versions: ${taggedVersions.length}, Untagged versions: ${untaggedVersions.length}`);
+
+              const sortedTagged = taggedVersions.sort((a, b) =>
+                new Date(b.created_at) - new Date(a.created_at)
               );
 
-              core.info(
-                `Tagged versions: ${taggedVersions.length}, Untagged versions: ${untaggedVersions.length}`
-              );
-
-              const sortedTagged = taggedVersions.sort(
-                (a, b) => new Date(b.created_at) - new Date(a.created_at)
-              );
+              const taggedToDelete = sortedTagged.slice(keepCount);
 
               const oldestKept = sortedTagged.length > 0
                 ? new Date(sortedTagged[Math.min(keepCount, sortedTagged.length) - 1].created_at)
@@ -436,46 +328,35 @@ jobs:
               core.info(`Untagged versions to delete: ${untaggedToDelete.length} (keeping ${untaggedVersions.length - untaggedToDelete.length} that may be referenced by kept tags)`);
 
               for (const version of untaggedToDelete) {
-                core.info(
-                  `Deleting untagged version ${version.id} (created: ${version.created_at})`
-                );
+                core.info(`Deleting untagged version ${version.id} (created: ${version.created_at})`);
                 try {
-                  await github.rest.packages.deletePackageVersionForOrg({
+                  await deleteVersion({
                     package_type: 'container',
                     package_name: packageName,
-                    org: owner,
                     package_version_id: version.id,
+                    ...ownerArgs,
                   });
                 } catch (error) {
-                  core.warning(
-                    `Failed to delete untagged version ${version.id}: ${error.message}`
-                  );
+                  core.warning(`Failed to delete untagged version ${version.id}: ${error.message}`);
                 }
               }
 
-              const versionsToDelete = sortedTagged.slice(keepCount);
-
-              core.info(
-                `Keeping ${keepCount} newest tagged versions, deleting ${versionsToDelete.length} older ones...`
-              );
-              for (const version of versionsToDelete) {
+              core.info(`Keeping ${keepCount} newest tagged versions, deleting ${taggedToDelete.length} older ones...`);
+              for (const version of taggedToDelete) {
                 const tags = version.metadata?.container?.tags?.join(', ') || 'unknown';
-                core.info(
-                  `Deleting version ${version.id} with tags: ${tags} (created: ${version.created_at})`
-                );
+                core.info(`Deleting version ${version.id} with tags: ${tags} (created: ${version.created_at})`);
                 try {
-                  await github.rest.packages.deletePackageVersionForOrg({
+                  await deleteVersion({
                     package_type: 'container',
                     package_name: packageName,
-                    org: owner,
                     package_version_id: version.id,
+                    ...ownerArgs,
                   });
                 } catch (error) {
-                  core.warning(
-                    `Failed to delete version ${version.id}: ${error.message}`
-                  );
+                  core.warning(`Failed to delete version ${version.id}: ${error.message}`);
                 }
               }
+
             } catch (error) {
               if (error.status === 404) {
                 core.info('No package found - this might be the first build');
