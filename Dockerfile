@@ -143,7 +143,7 @@ PROFILE
     fi
     
     # Create symlinks to /config for persistent config files
-    for item in .gitconfig .vibe .gemini .copilot .vimrc .tmux.conf; do
+    for item in .gitconfig .pi .vibe .gemini .copilot .vimrc .tmux.conf; do
         target="/config/$item"
         link="$HOME_DIR/$item"
         if [ -e "$target" ] || [ -d "$target" ]; then
