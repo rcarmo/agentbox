@@ -235,6 +235,9 @@ gemini:
 vibe:
 	$(UV) tool install -U mistral-vibe
 
+pi:	node
+	npm install -g @mariozechner/pi-coding-agent
+
 init-workspace: ## Copy built-in workspace skeleton into /workspace (no overwrite)
 	@mkdir -p /workspace
 	@rsync -a --ignore-existing $(HOME)/workspace-skel/ /workspace/
