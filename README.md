@@ -6,7 +6,7 @@ There's no perfect way to sandbox agents (yet), but at least we can try limiting
 
 Agentbox is a simple Docker-based coding agent sandbox, originally inspired by running [Batrachian Toad](https://github.com/batrachianai/toad) as a general-purpose coding assistant TUI and now generalized to more tools.
 
-Whatever agent you prefer, Agentbox aims to provide a reliable and isolated environment which will help you boostrap pretty much _any_ development environment.
+Whatever agent you prefer, Agentbox aims to provide a reliable and isolated environment which will help you boostrap pretty much _any_ development environment, and it works well with [`webterm`](https://github.com/rcarmo/webterm) to run dozens of agents simultaneously.
 
 ## Motivation
 
