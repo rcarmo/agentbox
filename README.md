@@ -16,9 +16,12 @@ I found myself wanting to quickly spin up isolated coding environments for AI ag
 
 The default container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, and `ssh`/`mosh` server to run these:
 
-- **[Batrachian Toad](https://github.com/batrachianai/toad)**: A unified interface for AI in your terminal
 - **[Copilot CLI](https://github.com/github/copilot-cli)**: My usual go-to
 - **[OpenCode](https://github.com/anomalyco/opencode/)**: Another coding assistant pre-installed
+- **[Batrachian Toad](https://github.com/batrachianai/toad)**: A unified interface for AI in your terminal
+- **[Gemini CLI](https://github.com/google-gemini/gemini-cli)**: Installable via `make -C ~ gemini`
+- **[mistral-vibe](https://github.com/mistralai/mistral-vibe)**: Installable via `make -C ~ vibe`
+- **[Pi Coding Agent](https://www.npmjs.com/package/@mariozechner/pi-coding-agent)**: Installable via `make -C ~ pi`
 - **Development Environment**: Debian Bookworm with essential development tools
 - **Package Managers**: Homebrew and APT package management, plus `uv`, `bun`, etc.
 - **Docker-in-Docker**: Docker support for containerized workflows (requires you to run the container in privileged mode, so be careful)
@@ -64,7 +67,18 @@ docker run -d -e ENABLE_DOCKER=true -e ENABLE_SSH=true -e ENABLE_RDP=true -p 22:
 
 ### Optional Tool Installs
 
-Run `make -C ~ tools` (or `make -C ~ node`, `make -C ~ go`, `make -C ~ gemini`, `make -C ~ vibe`) to install optional tooling via Homebrew/uv.
+Inside the container, the `agent` user ships with a `~/Makefile` that can install additional tooling.
+
+**Coding agents/CLIs you can install via `make -C ~ …`:**
+
+- `gemini` — installs **Gemini CLI** (via Homebrew)
+- `vibe` — installs **mistral-vibe** (via `uv tool`)
+- `pi` — installs **Pi Coding Agent** (`@mariozechner/pi-coding-agent`, via npm; requires `make -C ~ node`)
+
+**Convenience targets:**
+
+- `tools` — installs `node`, `go`, `gemini`, `vibe`
+- `node`, `go` — install language toolchains (prereqs for some agents)
 
 ### Workspace skeleton
 
