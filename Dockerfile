@@ -235,8 +235,14 @@ gemini:
 vibe:
 	$(UV) tool install -U mistral-vibe
 
-pi:	node
-	npm install -g @mariozechner/pi-coding-agent
+pi:
+	bun add -g @mariozechner/pi-coding-agent
+
+opencode:
+	bun add -g opencode-ai
+
+toad:
+	$(UV) tool install -U batrachian-toad
 
 init-workspace: ## Copy built-in workspace skeleton into /workspace (no overwrite)
 	@mkdir -p /workspace
