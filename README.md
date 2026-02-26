@@ -2,33 +2,23 @@
 
 ![Logo](docs/icon-256.png)
 
-There's no perfect way to sandbox agents (yet), but at least we can try limiting the damage using containers.
+There's no perfect way to sandbox agents (yet), but containers are a practical start.
 
-Agentbox is a simple Docker-based coding agent sandbox, originally inspired by running [Batrachian Toad](https://github.com/batrachianai/toad) as a general-purpose coding assistant TUI and now generalized to more tools.
-
-Whatever agent you prefer, Agentbox aims to provide a reliable and isolated environment which will help you boostrap pretty much _any_ development environment, and it works well with [`webterm`](https://github.com/rcarmo/webterm) to run dozens of agents simultaneously.
-
-## Motivation
-
-I found myself wanting to quickly spin up isolated coding environments for AI agents, without having to deal with complex orchestration tools or heavy VMs, and also wanting to limit CPU usage from [Batrachian Toad](https://github.com/batrachianai/toad) itself.
+Agentbox is a Docker-based coding agent sandbox, originally inspired by [Batrachian Toad](https://github.com/batrachianai/toad), and now generalized to more tools.
+It provides an isolated environment that works well with [`webterm`](https://github.com/rcarmo/webterm) for running multiple agent sessions.
 
 ## Features
 
-The default container provides a Debian userland, Homebrew, (optional) Docker-in-Docker, and `ssh`/`mosh` server to run these:
+The default container provides:
 
-- **[Copilot CLI](https://github.com/github/copilot-cli)**: My usual go-to
-- **[OpenCode](https://github.com/anomalyco/opencode/)**: Another coding assistant pre-installed
-- **[Batrachian Toad](https://github.com/batrachianai/toad)**: A unified interface for AI in your terminal
-- **[Gemini CLI](https://github.com/google-gemini/gemini-cli)**: Installable via `make -C ~ gemini`
-- **[mistral-vibe](https://github.com/mistralai/mistral-vibe)**: Installable via `make -C ~ vibe`
-- **[Pi Coding Agent](https://www.npmjs.com/package/@mariozechner/pi-coding-agent)**: Installable via `make -C ~ pi`
-- **Development Environment**: Debian Bookworm with essential development tools
-- **Package Managers**: Homebrew and APT package management, plus `uv`, `bun`, etc.
-- **Docker-in-Docker**: Docker support for containerized workflows (requires you to run the container in privileged mode, so be careful)
-- **Service Control**: Fine-grained control over which services start using environment variables (`ENABLE_DOCKER`, `ENABLE_SSH`, `ENABLE_RDP`)
-- **Remote Access**: SSH (port 22) connectivity (disabled by default)
-- **Persistent Storage**: optional data and agent home directory persistence
-- **Agent SKILLs and CI Scaffolding**: The `agent` user ships with a repository skeleton/scaffolding for common development steps, as well as agent skils to go with it (see the `Makefile` inside `/home/agent`)
+- **Development environment**: Debian Bookworm with common development tools
+- **Preinstalled CLI tools**: [Copilot CLI](https://github.com/github/copilot-cli), Nushell, `lazygit`, `killall`
+- **Package managers**: Homebrew and APT, plus `uv` and Bun
+- **Optional agent tooling**: install `toad`, `opencode`, `gemini`, `vibe`, and `pi` via `make -C ~ ...`
+- **Service control**: toggle Docker/SSH/RDP with `ENABLE_DOCKER`, `ENABLE_SSH`, and `ENABLE_RDP`
+- **Docker-in-Docker**: available when containers run in privileged mode
+- **Remote access**: SSH (`ENABLE_SSH=true`) and mosh support
+- **Workspace bootstrap**: built-in workspace skeleton and agent skills under `/home/agent/workspace-skel`
 
 ## Roadmap
 
@@ -71,6 +61,8 @@ Inside the container, the `agent` user ships with a `~/Makefile` that can instal
 
 **Coding agents/CLIs you can install via `make -C ~ …`:**
 
+- `toad` — installs **Batrachian Toad** (via `uv tool`)
+- `opencode` — installs **OpenCode** (via Bun)
 - `gemini` — installs **Gemini CLI** (via Homebrew)
 - `vibe` — installs **mistral-vibe** (via `uv tool`)
 - `pi` — installs **Pi Coding Agent** (`@mariozechner/pi-coding-agent`, via npm; requires `make -C ~ node`)
@@ -98,80 +90,32 @@ The GUI build is published as the `:gui` tag (also `<release>-gui`) and includes
 
 ### Docker Compose
 
-The `docker compose` file includes an example of a set of agent workspaces that you can customize. Use the `Makefile` to quickly start/stop the instances and enter one of them by typing:
+Recommended workflow:
 
 ```bash
-make enter-<instance-name>
+make up
+make enter-toad   # or: make enter-copilot
+make down
 ```
 
-That will start (or resume) a `tmux` session inside the container, where you can run your agents.
-
-### Using Agentbox Manager (still WIP)
-
-
-The Agentbox Manager is a first stab at a TUI for easily managing multiple agentbox instances with automatic naming, folder picker, and proper permission handling.
-
-1. Clone or download this repository
-2. Run the quick start script:
-
-```bash
-```
-
-**Manager Features:**
-
-- 📁 **Folder Picker**: Browse and select workspace directories easily
-- 🏷️ **Automatic Naming**: Container names and hostnames based on folder names
-- 👤 **PUID/PGID Support**: Automatic permission alignment with host system
-- 🐳 **Docker Compose**: Leverages docker-compose for orphan cleanup and resource management
-- 🔄 **Multi-Instance**: Manage multiple development environments simultaneously
-
-**Manager Usage:**
-
-- Use arrow keys to navigate instances
-- Press `c` to create a new instance
-- Press `enter` to connect to selected instance
-- Press `s` to start/stop instances
-- Press `q` to quit
-
-### Using Docker Compose (Manual)
-
-If you prefer to use docker-compose directly:
-
-1. Clone or download this repository
-2. Create a `docker-compose.override.yml` file to enable services:
+If you need service overrides, create `docker-compose.override.yml`:
 
 ```yaml
-version: "3.8"
 services:
-  agentbox:
+  toad:
     environment:
-      - ENABLE_DOCKER=true
-      - ENABLE_SSH=true
-      - ENABLE_RDP=true
-    ports:
-      - "22:22"
-      - "3389:3389"
+      ENABLE_DOCKER: "true"
+      ENABLE_SSH: "true"
+  copilot:
+    environment:
+      ENABLE_DOCKER: "true"
+      ENABLE_SSH: "true"
 ```
 
-3. Run the container:
+Then run:
 
 ```bash
-docker-compose up -d
-```
-
-3. Connect to the container:
-
-**Via RDP (Graphical Desktop):**
-
-- RDP Client: `localhost:3389`
-- Username: `agent`
-- Password: `smith`
-
-**Via SSH (Terminal):**
-
-```bash
-ssh agent@localhost -p 22
-# Password: smith
+docker compose up -d
 ```
 
 ### Using Docker Directly
@@ -200,19 +144,25 @@ docker run -d \
 
 Once connected to the container:
 
-1. Start Toad:
+1. Install Toad (if needed):
+
+```bash
+make -C ~ toad
+```
+
+2. Start Toad:
 
 ```bash
 toad
 ```
 
-2. Or start with a specific project directory:
+3. Or start with a specific project directory:
 
 ```bash
 toad /workspace
 ```
 
-3. Or launch directly with an agent:
+4. Or launch directly with an agent:
 
 ```bash
 toad -a open-hands

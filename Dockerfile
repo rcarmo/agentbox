@@ -36,7 +36,7 @@ RUN apt-get update && \
     # Python dependencies
     python3-dev python3-pip python3-venv libssl-dev libffi-dev \
     lsb-release \
-    # Process management tools
+    # Process management tools (includes killall)
     psmisc procps && \
     # Install Docker
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
@@ -209,7 +209,7 @@ WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
     echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
-    brew update && brew install copilot-cli nushell && \
+    brew update && brew install copilot-cli nushell lazygit && \
     curl -fsSL https://bun.sh/install | bash && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
