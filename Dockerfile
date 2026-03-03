@@ -26,7 +26,7 @@ RUN apt-get update && \
     ca-certificates apt-transport-https gnupg curl wget unzip \
     bash-completion man rsync sudo less zsh \
     # Development tools
-    git vim tmux htop tree ripgrep \
+    git vim tmux htop tree ripgrep jq \
     # SSH/mosh server
     openssh-server mosh \
     # Network tools
