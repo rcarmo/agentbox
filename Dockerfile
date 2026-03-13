@@ -1,5 +1,5 @@
 # Agent - Coding Agent Sandbox
-FROM debian:bookworm-slim AS base
+FROM debian:trixie-slim AS base
 
 # Environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -40,7 +40,7 @@ RUN apt-get update && \
     psmisc procps && \
     # Install Docker
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian trixie stable" > /etc/apt/sources.list.d/docker.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends docker-ce docker-ce-cli containerd.io docker-compose-plugin && \
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* && \
@@ -209,8 +209,12 @@ WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
     echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
-    brew update && brew install copilot-cli nushell lazygit && \
+    brew update && brew install copilot-cli gh nushell lazygit && \
     curl -fsSL https://bun.sh/install | bash && \
+    export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && \
+    bun add -g @openai/codex @mariozechner/pi-coding-agent && \
+    sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/codex)" && \
+    sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/pi)" && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
     echo 'source "$HOME/.local/bin/env"' >> ~/.bashrc && \
@@ -218,7 +222,7 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
     echo '    eval "$(ssh-agent -s)" >/dev/null' >> ~/.bashrc && \
     echo 'fi' >> ~/.bashrc && \
     cat > ~/Makefile <<'MAKEFILE'
-.PHONY: tools node go gemini vibe all init-workspace
+.PHONY: tools node go gemini vibe opencode toad all init-workspace
 BREW ?= /home/linuxbrew/.linuxbrew/bin/brew
 UV ?= $(HOME)/.local/bin/uv
 
@@ -234,9 +238,6 @@ gemini:
 
 vibe:
 	$(UV) tool install -U mistral-vibe
-
-pi:
-	bun add -g @mariozechner/pi-coding-agent
 
 opencode:
 	bun add -g opencode-ai

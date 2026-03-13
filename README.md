@@ -11,10 +11,11 @@ It provides an isolated environment that works well with [`webterm`](https://git
 
 The default container provides:
 
-- **Development environment**: Debian Bookworm with common development tools
-- **Preinstalled CLI tools**: [Copilot CLI](https://github.com/github/copilot-cli), Nushell, `lazygit`, `killall`
+- **Development environment**: Debian Trixie with common development tools
+- **Preinstalled coding agents**: [Copilot CLI](https://github.com/github/copilot-cli), [Codex](https://github.com/openai/codex), [Pi](https://github.com/nicholasgasior/pi-coding-agent)
+- **Preinstalled CLI tools**: [gh](https://cli.github.com/), Nushell, `lazygit`, `killall`
 - **Package managers**: Homebrew and APT, plus `uv` and Bun
-- **Optional agent tooling**: install `toad`, `opencode`, `gemini`, `vibe`, and `pi` via `make -C ~ ...`
+- **Optional agent tooling**: install `toad`, `opencode`, `gemini`, and `vibe` via `make -C ~ ...`
 - **Service control**: toggle Docker/SSH/RDP with `ENABLE_DOCKER`, `ENABLE_SSH`, and `ENABLE_RDP`
 - **Docker-in-Docker**: available when containers run in privileged mode
 - **Remote access**: SSH (`ENABLE_SSH=true`) and mosh support
@@ -65,7 +66,6 @@ Inside the container, the `agent` user ships with a `~/Makefile` that can instal
 - `opencode` — installs **OpenCode** (via Bun)
 - `gemini` — installs **Gemini CLI** (via Homebrew)
 - `vibe` — installs **mistral-vibe** (via `uv tool`)
-- `pi` — installs **Pi Coding Agent** (`@mariozechner/pi-coding-agent`, via npm; requires `make -C ~ node`)
 
 **Convenience targets:**
 
