@@ -341,7 +341,8 @@ RUN ARCH="$(dpkg --print-architecture)" && \
         *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
     esac && \
     wget "$VS_DEB_URL" -O /tmp/vscode.deb && \
-    dpkg -i /tmp/vscode.deb && rm /tmp/vscode.deb && \
+    apt-get update && apt-get install -y /tmp/vscode.deb && \
+    rm /tmp/vscode.deb && apt-get clean && rm -rf /var/lib/apt/lists/* && \
     cp -a /home/agent/. /etc/skel.agent/ && \
     echo "Skeleton: $(find /etc/skel.agent -type f | wc -l) files"
 
