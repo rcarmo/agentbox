@@ -366,6 +366,7 @@ RUN chmod +x /etc/xrdp/startwm.sh && \
 set -euo pipefail
 rm -rf /tmp/.X* /tmp/ssh-* || true
 mkdir -p /var/run/xrdp && chown xrdp:xrdp /var/run/xrdp
+rm -f /var/run/xrdp/xrdp-sesman.pid /var/run/xrdp/xrdp.pid || true
 /usr/sbin/xrdp-sesman
 /usr/sbin/xrdp --nodaemon &
 XRDP_PID=$!
