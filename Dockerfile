@@ -209,22 +209,20 @@ WORKDIR /home/agent
 RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
     echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
-    brew update && brew install copilot-cli gh nushell lazygit && \
+    brew update && brew install copilot-cli gh nushell lazygit uv && \
     curl -fsSL https://bun.sh/install | bash && \
     export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && \
     bun add -g @openai/codex @mariozechner/pi-coding-agent && \
     sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/codex)" && \
     sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/pi)" && \
-    curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
-    echo 'source "$HOME/.local/bin/env"' >> ~/.bashrc && \
     echo 'if [ -d "$HOME/.ssh" ] && [ -z "$SSH_AUTH_SOCK" ]; then' >> ~/.bashrc && \
     echo '    eval "$(ssh-agent -s)" >/dev/null' >> ~/.bashrc && \
     echo 'fi' >> ~/.bashrc && \
     cat > ~/Makefile <<'MAKEFILE'
 .PHONY: tools node go gemini vibe opencode toad all init-workspace
 BREW ?= /home/linuxbrew/.linuxbrew/bin/brew
-UV ?= $(HOME)/.local/bin/uv
+UV ?= /home/linuxbrew/.linuxbrew/bin/uv
 
 tools: node go gemini vibe
 node:
