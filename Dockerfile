@@ -212,10 +212,11 @@ RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/instal
     brew update && brew install copilot-cli gh nushell lazygit uv && \
     curl -fsSL https://bun.sh/install | bash && \
     export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && \
-    bun add -g @openai/codex @agentclientprotocol/claude-agent-acp @github/copilot-language-server @mariozechner/pi-coding-agent && \
+    bun add -g @openai/codex @agentclientprotocol/claude-agent-acp @github/copilot-language-server pi-acp @mariozechner/pi-coding-agent && \
     sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/codex)" && \
     sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/claude-agent-acp)" && \
     sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/copilot-language-server)" && \
+    sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/pi-acp)" && \
     sed -i '1s|/usr/bin/env node|/usr/bin/env bun|' "$(readlink -f $HOME/.bun/bin/pi)" && \
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && \
     echo 'if [ -d "$HOME/.ssh" ] && [ -z "$SSH_AUTH_SOCK" ]; then' >> ~/.bashrc && \
