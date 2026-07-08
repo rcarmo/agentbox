@@ -10,6 +10,8 @@ permissions:
 jobs:
   cleanup:
     name: Prune old Actions artifacts, caches, and runs
+    if: >-
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Delete stale artifacts, branch-scoped caches, and old completed runs
